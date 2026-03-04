@@ -1,49 +1,73 @@
-// ═══════════════════════════════════════════
-// BottomNav — Fixed bottom navigation bar
-// Home, Search, Cart
-// ═══════════════════════════════════════════
-
 "use client";
 
-import { useCartStore } from "@/store/cartStore";
+import { Home, LayoutGrid, ShoppingCart } from "lucide-react";
 
-export default function BottomNav() {
-    const count = useCartStore((s) => s.getItemCount());
+/* ════════════════════════════════════════════════════════════════════
+   BottomNav — Glassmorphism bottom navigation bar
+   ════════════════════════════════════════════════════════════════════ */
 
+interface BottomNavProps {
+    activeTab: "inicio" | "pasillos" | "carrito";
+    onInicioClick: () => void;
+    onPasillosClick: () => void;
+    onCarritoClick?: () => void;
+    cartCount?: number;
+}
+
+export function BottomNav({
+    activeTab,
+    onInicioClick,
+    onPasillosClick,
+    onCarritoClick,
+    cartCount = 0,
+}: BottomNavProps) {
     return (
-        <nav className="bnav" aria-label="Navegación principal">
-            {/* Home */}
-            <button className="bnav__item bnav__item--active" aria-label="Inicio">
-                <svg className="bnav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                    <polyline points="9 22 9 12 15 12 15 22" />
-                </svg>
-                <span className="bnav__label">Inicio</span>
-            </button>
+        <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-2xl border-t border-white/40 shadow-[0_-4px_30px_rgba(0,0,0,0.1)]">
+            <div className="max-w-md mx-auto flex items-center justify-around px-4 py-2.5">
+                {/* Inicio */}
+                <button
+                    onClick={onInicioClick}
+                    className="flex flex-col items-center gap-1"
+                    aria-current={activeTab === "inicio" ? "page" : undefined}
+                >
+                    <Home className={`w-6 h-6 ${activeTab === "inicio" ? "text-go-red" : "text-[#64748b]"}`} />
+                    <span className={`text-[10px] ${activeTab === "inicio" ? "font-black text-go-red" : "font-bold text-[#64748b]"}`}>
+                        Inicio
+                    </span>
+                    {activeTab === "inicio" && <div className="w-1 h-1 rounded-full bg-go-red" />}
+                </button>
 
-            {/* Search */}
-            <button className="bnav__item" aria-label="Buscar">
-                <svg className="bnav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-                <span className="bnav__label">Buscar</span>
-            </button>
+                {/* Pasillos */}
+                <button
+                    onClick={onPasillosClick}
+                    className="flex flex-col items-center gap-1"
+                    aria-current={activeTab === "pasillos" ? "page" : undefined}
+                >
+                    <LayoutGrid className={`w-6 h-6 ${activeTab === "pasillos" ? "text-go-red" : "text-[#64748b]"}`} />
+                    <span className={`text-[10px] ${activeTab === "pasillos" ? "font-black text-go-red" : "font-bold text-[#64748b]"}`}>
+                        Pasillos
+                    </span>
+                    {activeTab === "pasillos" && <div className="w-1 h-1 rounded-full bg-go-red" />}
+                </button>
 
-            {/* Cart */}
-            <button className="bnav__item" aria-label="Carrito">
-                <div className="bnav__cart">
-                    <svg className="bnav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
-                        <line x1="3" y1="6" x2="21" y2="6" />
-                        <path d="M16 10a4 4 0 01-8 0" />
-                    </svg>
-                    {count > 0 && (
-                        <span className="bnav__badge">{count}</span>
-                    )}
-                </div>
-                <span className="bnav__label">Carrito</span>
-            </button>
+                {/* Carrito */}
+                <button
+                    onClick={onCarritoClick}
+                    className="relative flex flex-col items-center gap-1"
+                    aria-current={activeTab === "carrito" ? "page" : undefined}
+                >
+                    <div className="relative">
+                        <ShoppingCart className={`w-6 h-6 ${activeTab === "carrito" ? "text-go-red" : "text-[#64748b]"}`} />
+                        <span className="absolute -top-1.5 -right-2 flex items-center justify-center w-[18px] h-[18px] rounded-full bg-go-red text-white text-[10px] font-black shadow-sm shadow-red-500/30">
+                            {cartCount}
+                        </span>
+                    </div>
+                    <span className={`text-[10px] ${activeTab === "carrito" ? "font-black text-go-red" : "font-bold text-[#64748b]"}`}>
+                        Carrito
+                    </span>
+                    {activeTab === "carrito" && <div className="w-1 h-1 rounded-full bg-go-red" />}
+                </button>
+            </div>
         </nav>
     );
 }

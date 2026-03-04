@@ -1,10 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import {
-    ChevronLeft, Search, MapPin, Truck, ChevronRight,
-    Home, LayoutGrid, ShoppingCart,
-} from "lucide-react";
+import { ChevronLeft, Search, MapPin, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import { GoLogoFull } from "./GoLogoFull";
 import { Sidebar } from "./Sidebar";
@@ -12,6 +9,8 @@ import { SubcategoryCarousel } from "./SubcategoryCarousel";
 import { CatalogProductCard } from "./CatalogProductCard";
 import { PasillosFab } from "./PasillosFab";
 import { ProductDetailModal } from "./ProductDetailModal";
+import { BottomNav } from "./BottomNav";
+import { SearchBar } from "./SearchBar";
 
 /* ========================================================================
    DATA — Quick-access categories for landing (real images)
@@ -60,11 +59,9 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
     const [deepViewSubId, setDeepViewSubId] = useState<string | null>(null);
     const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
     const [isScrollSpy, setIsScrollSpy] = useState(true);
-    const [showFixedSearch, setShowFixedSearch] = useState(false);
 
     const productAreaRef = useRef<HTMLDivElement>(null);
     const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-    const searchSentinelRef = useRef<HTMLDivElement>(null);
 
     const activeMacro = macroCategories.find(m => m.id === activeMacroId);
 
@@ -91,27 +88,11 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
         return () => observer.disconnect();
     }, [activeMacroId, activeSubcategories.length, isScrollSpy, deepViewSubId]);
 
-    // Fixed search bar — IntersectionObserver on sentinel
-    // Only active in STATE 0 (landing). Resets when leaving.
-    useEffect(() => {
-        if (activeMacroId !== null) {
-            setShowFixedSearch(false);
-            return;
-        }
-        const sentinel = searchSentinelRef.current;
-        if (!sentinel) return;
-        const observer = new IntersectionObserver(
-            ([entry]) => setShowFixedSearch(!entry.isIntersecting),
-            { threshold: 0 }
-        );
-        observer.observe(sentinel);
-        return () => observer.disconnect();
-    }, [activeMacroId]);
 
     const handleMacroSelect = useCallback((macroId: string) => { setActiveMacroId(macroId); setDeepViewSubId(null); }, []);
     const handleSeeMore = useCallback((subId: string) => { setDeepViewSubId(subId); setActiveSubId(subId); productAreaRef.current?.scrollTo({ top: 0 }); }, []);
     const handleBackToVitrina = useCallback(() => { setDeepViewSubId(null); productAreaRef.current?.scrollTo({ top: 0 }); }, []);
-    const handleBackToLanding = useCallback(() => { setActiveMacroId(null); setDeepViewSubId(null); setActiveSubId(null); setShowFixedSearch(false); }, []);
+    const handleBackToLanding = useCallback(() => { setActiveMacroId(null); setDeepViewSubId(null); setActiveSubId(null); }, []);
     const handleSubSelect = useCallback((subId: string) => {
         if (deepViewSubId) { handleSeeMore(subId); return; }
         setActiveSubId(subId); setIsScrollSpy(false);
@@ -194,39 +175,8 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                         </div>
                     </section>
 
-                    {/* ═══════════════════════════════════════════════════════
-                        SEARCH BAR — In-flow (scrolls naturally with hero)
-                        ═══════════════════════════════════════════════════════ */}
-                    <div ref={searchSentinelRef} className="px-5 pt-1 pb-4">
-                        {/* Search pill — transparent glass over beach */}
-                        <div className="relative flex items-center h-[50px] rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 shadow-[0_2px_16px_rgba(0,0,0,0.08)]">
-                            <div className="absolute left-3.5 flex items-center justify-center w-8 h-8 rounded-xl bg-white/20">
-                                <Search className="w-4 h-4 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
-                            </div>
-                            <input
-                                type="text"
-                                placeholder="¿Qué necesitas hoy?"
-                                className="w-full h-full pl-14 pr-5 bg-transparent text-sm font-bold text-white placeholder:text-white/70 outline-none rounded-2xl drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]"
-                                readOnly
-                            />
-                        </div>
-
-                        {/* Delivery chips */}
-                        <div className="flex items-center justify-center gap-2 mt-4">
-                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.15] backdrop-blur-md border border-white/25">
-                                <Truck className="w-3 h-3 text-[#fbbf24]" />
-                                <span className="text-[10px] font-bold text-white">24/7</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.15] backdrop-blur-md border border-white/25">
-                                <svg className="w-3 h-3 text-[#5eead4]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
-                                <span className="text-[10px] font-bold text-white">15 min</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.15] backdrop-blur-md border border-white/25">
-                                <svg className="w-3 h-3 text-[#f87171]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
-                                <span className="text-[10px] font-bold text-white">Seguro</span>
-                            </div>
-                        </div>
-                    </div>
+                    {/* Search bar + delivery chips + fixed scroll overlay */}
+                    <SearchBar />
 
                     {/* ─── LO MÁS PEDIDO — Glassmorphism card ─── */}
                     <section className="px-4 pt-3 pb-2">
@@ -317,55 +267,17 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
 
                 </div>
 
-                {/* ═══════════════════════════════════════════════════════
-                    FIXED SEARCH — Slides in ONLY when in-flow bar exits viewport
-                    ═══════════════════════════════════════════════════════ */}
-                <div
-                    className={`fixed top-0 left-0 right-0 z-[45] transition-all duration-300 ease-out ${showFixedSearch
-                        ? 'translate-y-0 opacity-100'
-                        : '-translate-y-full opacity-0 pointer-events-none'
-                        }`}
-                >
-                    <div className="max-w-md mx-auto px-5 pt-[max(12px,env(safe-area-inset-top))] pb-3">
-                        <div className="relative flex items-center h-[50px] rounded-2xl bg-white/80 backdrop-blur-2xl border border-white/70 shadow-[0_4px_20px_rgba(0,0,0,0.1)]">
-                            <div className="absolute left-3.5 flex items-center justify-center w-8 h-8 rounded-xl bg-[#5eead4]/15">
-                                <Search className="w-4 h-4 text-[#0d9488]" />
-                            </div>
-                            <input
-                                type="text"
-                                placeholder="¿Qué necesitas hoy?"
-                                className="w-full h-full pl-14 pr-5 bg-transparent text-sm font-bold text-[#1e293b] placeholder:text-[#94a3b8] outline-none rounded-2xl"
-                            />
-                        </div>
-                    </div>
-                </div>
-
                 {/* Product Detail Modal */}
                 {selectedProduct && (
                     <ProductDetailModal product={selectedProduct} allProducts={initialProducts} onClose={() => setSelectedProduct(null)} />
                 )}
 
-                {/* ─── BOTTOM NAVIGATION — Glassmorphism ─── */}
-                <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-2xl border-t border-white/40 shadow-[0_-4px_30px_rgba(0,0,0,0.1)]">
-                    <div className="max-w-md mx-auto flex items-center justify-around px-4 py-2.5">
-                        <button className="flex flex-col items-center gap-1" aria-current="page">
-                            <Home className="w-6 h-6 text-go-red" />
-                            <span className="text-[10px] font-black text-go-red">Inicio</span>
-                            <div className="w-1 h-1 rounded-full bg-go-red" />
-                        </button>
-                        <button onClick={() => handleMacroSelect(macroCategories[0]?.id || "")} className="flex flex-col items-center gap-1">
-                            <LayoutGrid className="w-6 h-6 text-[#64748b]" />
-                            <span className="text-[10px] font-bold text-[#64748b]">Pasillos</span>
-                        </button>
-                        <button className="relative flex flex-col items-center gap-1">
-                            <div className="relative">
-                                <ShoppingCart className="w-6 h-6 text-[#64748b]" />
-                                <span className="absolute -top-1.5 -right-2 flex items-center justify-center w-[18px] h-[18px] rounded-full bg-go-red text-white text-[10px] font-black shadow-sm shadow-red-500/30">0</span>
-                            </div>
-                            <span className="text-[10px] font-bold text-[#64748b]">Carrito</span>
-                        </button>
-                    </div>
-                </nav>
+                {/* Bottom Navigation */}
+                <BottomNav
+                    activeTab="inicio"
+                    onInicioClick={() => { }}
+                    onPasillosClick={() => handleMacroSelect(macroCategories[0]?.id || "")}
+                />
             </div>
         );
     }
@@ -475,27 +387,12 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                 )}
             </div>
 
-            {/* Bottom nav for catalog view */}
-            <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border/60 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
-                <div className="max-w-md mx-auto flex items-center justify-around px-4 py-2.5">
-                    <button onClick={handleBackToLanding} className="flex flex-col items-center gap-1">
-                        <Home className="w-6 h-6 text-muted-foreground" />
-                        <span className="text-[10px] font-bold text-muted-foreground">Inicio</span>
-                    </button>
-                    <button className="flex flex-col items-center gap-1" aria-current="page">
-                        <LayoutGrid className="w-6 h-6 text-go-red" />
-                        <span className="text-[10px] font-black text-go-red">Pasillos</span>
-                        <div className="w-1 h-1 rounded-full bg-go-red" />
-                    </button>
-                    <button className="relative flex flex-col items-center gap-1">
-                        <div className="relative">
-                            <ShoppingCart className="w-6 h-6 text-muted-foreground" />
-                            <span className="absolute -top-1.5 -right-2 flex items-center justify-center w-[18px] h-[18px] rounded-full bg-go-red text-card text-[10px] font-black shadow-sm shadow-red-500/30">0</span>
-                        </div>
-                        <span className="text-[10px] font-bold text-muted-foreground">Carrito</span>
-                    </button>
-                </div>
-            </nav>
+            {/* Bottom Navigation */}
+            <BottomNav
+                activeTab="pasillos"
+                onInicioClick={handleBackToLanding}
+                onPasillosClick={() => { }}
+            />
         </div>
     );
 }

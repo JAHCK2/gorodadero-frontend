@@ -2,12 +2,12 @@
 
 import Image from "next/image";
 import { Plus } from "lucide-react";
-import { LogoGoOficial } from "./LogoGoOficial";
+import { GoLogoFull } from "./GoLogoFull";
 
 export function GoWatermark() {
     return (
         <div className="absolute inset-0 flex items-center justify-center opacity-10">
-            <LogoGoOficial className="w-16 h-auto grayscale" />
+            <GoLogoFull className="w-16 h-auto grayscale" />
         </div>
     );
 }
