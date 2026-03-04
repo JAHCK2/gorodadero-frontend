@@ -185,10 +185,10 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                     </section>
 
                     {/* ═══════════════════════════════════════════════════════
-                        STICKY SEARCH BAR — Transparent, highlights on focus
+                        SEARCH BAR — In-flow (scrolls naturally with hero)
                         ═══════════════════════════════════════════════════════ */}
-                    <div className={`sticky top-0 z-30 px-5 transition-all duration-500 ease-out ${isScrolled ? 'py-3' : 'pt-1 pb-4'}`}>
-                        {/* Search bar — transparent pill, frosted on focus */}
+                    <div className="px-5 pt-1 pb-4">
+                        {/* Search pill — transparent, frosted on focus */}
                         <div
                             className={`relative flex items-center h-[50px] rounded-2xl border transition-all duration-300 ${searchFocused
                                 ? 'bg-white/80 backdrop-blur-2xl border-white/80 shadow-[0_8px_32px_rgba(255,255,255,0.3)]'
@@ -207,9 +207,8 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                             />
                         </div>
 
-                        {/* Delivery chips — smooth hide on scroll */}
-                        <div className={`flex items-center justify-center gap-2 overflow-hidden transition-all duration-300 ease-in-out ${isScrolled ? 'max-h-0 opacity-0 mt-0' : 'max-h-12 opacity-100 mt-4'
-                            }`}>
+                        {/* Delivery chips */}
+                        <div className="flex items-center justify-center gap-2 mt-4">
                             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.15] backdrop-blur-md border border-white/25">
                                 <Truck className="w-3 h-3 text-[#fbbf24]" />
                                 <span className="text-[10px] font-bold text-white">24/7</span>
@@ -312,6 +311,29 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                         </div>
                     </section>
 
+                </div>
+
+                {/* ═══════════════════════════════════════════════════════
+                    FIXED SEARCH OVERLAY — Slides in when scrolled past hero
+                    ═══════════════════════════════════════════════════════ */}
+                <div
+                    className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ease-out ${isScrolled
+                        ? 'translate-y-0 opacity-100'
+                        : '-translate-y-full opacity-0 pointer-events-none'
+                        }`}
+                >
+                    <div className="max-w-md mx-auto px-5 py-3">
+                        <div className="relative flex items-center h-[50px] rounded-2xl bg-white/80 backdrop-blur-2xl border border-white/80 shadow-[0_8px_32px_rgba(255,255,255,0.25)]">
+                            <div className="absolute left-3.5 flex items-center justify-center w-8 h-8 rounded-xl bg-[#5eead4]/20">
+                                <Search className="w-4 h-4 text-[#0d9488]" />
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="¿Qué necesitas hoy?"
+                                className="w-full h-full pl-14 pr-5 bg-transparent text-sm font-bold text-[#1e293b] placeholder:text-[#94a3b8] outline-none rounded-2xl"
+                            />
+                        </div>
+                    </div>
                 </div>
 
                 {/* Product Detail Modal */}
