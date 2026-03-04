@@ -60,11 +60,11 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
     const [deepViewSubId, setDeepViewSubId] = useState<string | null>(null);
     const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
     const [isScrollSpy, setIsScrollSpy] = useState(true);
-    const [searchFocused, setSearchFocused] = useState(false);
-    const [isScrolled, setIsScrolled] = useState(false);
+    const [showFixedSearch, setShowFixedSearch] = useState(false);
 
     const productAreaRef = useRef<HTMLDivElement>(null);
     const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+    const searchSentinelRef = useRef<HTMLDivElement>(null);
 
     const activeMacro = macroCategories.find(m => m.id === activeMacroId);
 
@@ -91,12 +91,18 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
         return () => observer.disconnect();
     }, [activeMacroId, activeSubcategories.length, isScrollSpy, deepViewSubId]);
 
-    // Sticky search bar — scroll detection
+    // Fixed search bar — IntersectionObserver on sentinel
+    // Shows fixed copy ONLY when in-flow search is fully off-screen
     useEffect(() => {
-        const handleScroll = () => setIsScrolled(window.scrollY > 80);
-        window.addEventListener('scroll', handleScroll, { passive: true });
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, []);
+        const sentinel = searchSentinelRef.current;
+        if (!sentinel) return;
+        const observer = new IntersectionObserver(
+            ([entry]) => setShowFixedSearch(!entry.isIntersecting),
+            { threshold: 0 }
+        );
+        observer.observe(sentinel);
+        return () => observer.disconnect();
+    }, [activeMacroId]);
 
     const handleMacroSelect = useCallback((macroId: string) => { setActiveMacroId(macroId); setDeepViewSubId(null); }, []);
     const handleSeeMore = useCallback((subId: string) => { setDeepViewSubId(subId); setActiveSubId(subId); productAreaRef.current?.scrollTo({ top: 0 }); }, []);
@@ -187,14 +193,9 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                     {/* ═══════════════════════════════════════════════════════
                         SEARCH BAR — In-flow (scrolls naturally with hero)
                         ═══════════════════════════════════════════════════════ */}
-                    <div className="px-5 pt-1 pb-4">
-                        {/* Search pill — transparent, frosted on focus */}
-                        <div
-                            className={`relative flex items-center h-[50px] rounded-2xl border transition-all duration-300 ${searchFocused
-                                ? 'bg-white/80 backdrop-blur-2xl border-white/80 shadow-[0_8px_32px_rgba(255,255,255,0.3)]'
-                                : 'bg-white/20 backdrop-blur-md border-white/30 shadow-[0_2px_16px_rgba(0,0,0,0.08)]'
-                                }`}
-                        >
+                    <div ref={searchSentinelRef} className="px-5 pt-1 pb-4">
+                        {/* Search pill — transparent glass over beach */}
+                        <div className="relative flex items-center h-[50px] rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 shadow-[0_2px_16px_rgba(0,0,0,0.08)]">
                             <div className="absolute left-3.5 flex items-center justify-center w-8 h-8 rounded-xl bg-white/20">
                                 <Search className="w-4 h-4 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
                             </div>
@@ -202,8 +203,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                                 type="text"
                                 placeholder="¿Qué necesitas hoy?"
                                 className="w-full h-full pl-14 pr-5 bg-transparent text-sm font-bold text-white placeholder:text-white/70 outline-none rounded-2xl drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]"
-                                onFocus={() => setSearchFocused(true)}
-                                onBlur={() => setSearchFocused(false)}
+                                readOnly
                             />
                         </div>
 
@@ -314,17 +314,17 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                 </div>
 
                 {/* ═══════════════════════════════════════════════════════
-                    FIXED SEARCH OVERLAY — Slides in when scrolled past hero
+                    FIXED SEARCH — Slides in ONLY when in-flow bar exits viewport
                     ═══════════════════════════════════════════════════════ */}
                 <div
-                    className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ease-out ${isScrolled
+                    className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ease-out ${showFixedSearch
                         ? 'translate-y-0 opacity-100'
                         : '-translate-y-full opacity-0 pointer-events-none'
                         }`}
                 >
                     <div className="max-w-md mx-auto px-5 py-3">
-                        <div className="relative flex items-center h-[50px] rounded-2xl bg-white/80 backdrop-blur-2xl border border-white/80 shadow-[0_8px_32px_rgba(255,255,255,0.25)]">
-                            <div className="absolute left-3.5 flex items-center justify-center w-8 h-8 rounded-xl bg-[#5eead4]/20">
+                        <div className="relative flex items-center h-[50px] rounded-2xl bg-white/80 backdrop-blur-2xl border border-white/70 shadow-[0_4px_20px_rgba(0,0,0,0.1)]">
+                            <div className="absolute left-3.5 flex items-center justify-center w-8 h-8 rounded-xl bg-[#5eead4]/15">
                                 <Search className="w-4 h-4 text-[#0d9488]" />
                             </div>
                             <input
