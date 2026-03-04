@@ -61,6 +61,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
     const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
     const [isScrollSpy, setIsScrollSpy] = useState(true);
     const [searchFocused, setSearchFocused] = useState(false);
+    const [isScrolled, setIsScrolled] = useState(false);
 
     const productAreaRef = useRef<HTMLDivElement>(null);
     const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -89,6 +90,13 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
         sectionRefs.current.forEach((el) => { if (el) observer.observe(el); });
         return () => observer.disconnect();
     }, [activeMacroId, activeSubcategories.length, isScrollSpy, deepViewSubId]);
+
+    // Sticky search bar — scroll detection
+    useEffect(() => {
+        const handleScroll = () => setIsScrolled(window.scrollY > 80);
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
 
     const handleMacroSelect = useCallback((macroId: string) => { setActiveMacroId(macroId); setDeepViewSubId(null); }, []);
     const handleSeeMore = useCallback((subId: string) => { setDeepViewSubId(subId); setActiveSubId(subId); productAreaRef.current?.scrollTo({ top: 0 }); }, []);
@@ -142,7 +150,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                 <div className="relative z-10 max-w-md mx-auto pb-24">
 
                     {/* ─── HERO SECTION ─── */}
-                    <section className="px-5 pt-5 pb-4">
+                    <section className="px-5 pt-5 pb-2">
                         {/* Top bar: location + online indicator */}
                         <div className="flex items-center justify-between mb-6">
                             <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-lg border border-white/20 hover:bg-white/25 transition-all duration-300 active:scale-95">
@@ -167,35 +175,57 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                         </div>
 
                         {/* Slogan with wave icons */}
-                        <div className="flex items-center justify-center gap-3 mb-6">
+                        <div className="flex items-center justify-center gap-3 mb-3">
                             <svg className="w-4 h-4 text-[#5eead4]/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /></svg>
                             <p className="text-[11px] font-extrabold text-white tracking-[0.25em] uppercase drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
                                 Tu super en minutos
                             </p>
                             <svg className="w-4 h-4 text-[#5eead4]/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /></svg>
                         </div>
+                    </section>
 
+                    {/* ═══════════════════════════════════════════════════════
+                        STICKY SEARCH BAR — Glassmorphism on scroll
+                        ═══════════════════════════════════════════════════════ */}
+                    <div
+                        className={`sticky top-0 z-30 px-5 transition-all duration-300 ease-in-out ${isScrolled
+                                ? 'py-3 bg-white/70 backdrop-blur-xl shadow-lg shadow-black/[0.08] border-b border-white/30'
+                                : 'pt-1 pb-4 bg-transparent'
+                            }`}
+                    >
                         {/* Search bar — glassmorphism */}
                         <div
-                            className={`relative flex items-center h-[50px] rounded-2xl bg-white/85 backdrop-blur-2xl border transition-all duration-300 ${searchFocused
-                                ? "border-white bg-white/95 shadow-[0_8px_40px_rgba(255,255,255,0.35)]"
-                                : "border-white/60 shadow-[0_4px_30px_rgba(255,255,255,0.15)]"
+                            className={`relative flex items-center h-[50px] rounded-2xl border transition-all duration-300 ${isScrolled
+                                    ? `bg-white/90 backdrop-blur-md ${searchFocused
+                                        ? 'border-[#0d9488]/40 shadow-[0_4px_20px_rgba(13,148,136,0.15)]'
+                                        : 'border-gray-200/80 shadow-sm'
+                                    }`
+                                    : `bg-white/85 backdrop-blur-2xl ${searchFocused
+                                        ? 'border-white bg-white/95 shadow-[0_8px_40px_rgba(255,255,255,0.35)]'
+                                        : 'border-white/60 shadow-[0_4px_30px_rgba(255,255,255,0.15)]'
+                                    }`
                                 }`}
                         >
-                            <div className="absolute left-3.5 flex items-center justify-center w-8 h-8 rounded-xl bg-[#5eead4]/20">
-                                <Search className="w-4 h-4 text-[#0d9488]" />
+                            <div className={`absolute left-3.5 flex items-center justify-center w-8 h-8 rounded-xl transition-colors duration-300 ${isScrolled ? 'bg-[#0d9488]/10' : 'bg-[#5eead4]/20'
+                                }`}>
+                                <Search className={`w-4 h-4 transition-colors duration-300 ${isScrolled ? 'text-[#0d9488]' : 'text-[#0d9488]'
+                                    }`} />
                             </div>
                             <input
                                 type="text"
                                 placeholder="¿Qué necesitas hoy?"
-                                className="w-full h-full pl-14 pr-5 bg-transparent text-sm font-bold text-[#1e293b] placeholder:text-[#94a3b8] outline-none rounded-2xl"
+                                className={`w-full h-full pl-14 pr-5 bg-transparent text-sm font-bold outline-none rounded-2xl transition-colors duration-300 ${isScrolled
+                                        ? 'text-gray-800 placeholder:text-gray-400'
+                                        : 'text-[#1e293b] placeholder:text-[#94a3b8]'
+                                    }`}
                                 onFocus={() => setSearchFocused(true)}
                                 onBlur={() => setSearchFocused(false)}
                             />
                         </div>
 
-                        {/* Delivery chips */}
-                        <div className="flex items-center justify-center gap-2 mt-5">
+                        {/* Delivery chips — smooth hide on scroll */}
+                        <div className={`flex items-center justify-center gap-2 overflow-hidden transition-all duration-300 ease-in-out ${isScrolled ? 'max-h-0 opacity-0 mt-0' : 'max-h-12 opacity-100 mt-4'
+                            }`}>
                             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.15] backdrop-blur-md border border-white/25">
                                 <Truck className="w-3 h-3 text-[#fbbf24]" />
                                 <span className="text-[10px] font-bold text-white">24/7</span>
@@ -209,7 +239,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                                 <span className="text-[10px] font-bold text-white">Seguro</span>
                             </div>
                         </div>
-                    </section>
+                    </div>
 
                     {/* ─── LO MÁS PEDIDO — Glassmorphism card ─── */}
                     <section className="px-4 pt-3 pb-2">
