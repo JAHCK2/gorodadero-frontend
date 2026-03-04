@@ -185,28 +185,23 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                     </section>
 
                     {/* ═══════════════════════════════════════════════════════
-                        STICKY SEARCH BAR — Subtle gradient veil on scroll
+                        STICKY SEARCH BAR — Transparent, highlights on focus
                         ═══════════════════════════════════════════════════════ */}
-                    <div
-                        className={`sticky top-0 z-30 px-5 transition-all duration-500 ease-out ${isScrolled
-                            ? 'py-3 bg-gradient-to-b from-black/40 via-black/20 to-transparent'
-                            : 'pt-1 pb-4'
-                            }`}
-                    >
-                        {/* Search bar — always frosted pill */}
+                    <div className={`sticky top-0 z-30 px-5 transition-all duration-500 ease-out ${isScrolled ? 'py-3' : 'pt-1 pb-4'}`}>
+                        {/* Search bar — transparent pill, frosted on focus */}
                         <div
-                            className={`relative flex items-center h-[50px] rounded-2xl bg-white/85 backdrop-blur-2xl border transition-all duration-300 ${searchFocused
-                                ? 'border-white bg-white/95 shadow-[0_8px_40px_rgba(255,255,255,0.35)]'
-                                : 'border-white/60 shadow-[0_4px_30px_rgba(255,255,255,0.15)]'
+                            className={`relative flex items-center h-[50px] rounded-2xl border transition-all duration-300 ${searchFocused
+                                ? 'bg-white/80 backdrop-blur-2xl border-white/80 shadow-[0_8px_32px_rgba(255,255,255,0.3)]'
+                                : 'bg-white/20 backdrop-blur-md border-white/30 shadow-[0_2px_16px_rgba(0,0,0,0.08)]'
                                 }`}
                         >
-                            <div className="absolute left-3.5 flex items-center justify-center w-8 h-8 rounded-xl bg-[#5eead4]/20">
-                                <Search className="w-4 h-4 text-[#0d9488]" />
+                            <div className="absolute left-3.5 flex items-center justify-center w-8 h-8 rounded-xl bg-white/20">
+                                <Search className="w-4 h-4 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
                             </div>
                             <input
                                 type="text"
                                 placeholder="¿Qué necesitas hoy?"
-                                className="w-full h-full pl-14 pr-5 bg-transparent text-sm font-bold text-[#1e293b] placeholder:text-[#94a3b8] outline-none rounded-2xl"
+                                className="w-full h-full pl-14 pr-5 bg-transparent text-sm font-bold text-white placeholder:text-white/70 outline-none rounded-2xl drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]"
                                 onFocus={() => setSearchFocused(true)}
                                 onBlur={() => setSearchFocused(false)}
                             />
