@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@theme {
+  --color-go-red: #FF2D2D;
+  --color-go-yellow: #FFD500;
+  --color-go-blue: #0066FF;
+  --color-background: #F8F9FA;
+  --color-foreground: #0A0A0A;
+  --color-muted-foreground: #737373;
+  --color-card: #FFFFFF;
+  --color-border: #E5E7EB;
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
