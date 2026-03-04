@@ -92,8 +92,12 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
     }, [activeMacroId, activeSubcategories.length, isScrollSpy, deepViewSubId]);
 
     // Fixed search bar — IntersectionObserver on sentinel
-    // Shows fixed copy ONLY when in-flow search is fully off-screen
+    // Only active in STATE 0 (landing). Resets when leaving.
     useEffect(() => {
+        if (activeMacroId !== null) {
+            setShowFixedSearch(false);
+            return;
+        }
         const sentinel = searchSentinelRef.current;
         if (!sentinel) return;
         const observer = new IntersectionObserver(
@@ -107,7 +111,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
     const handleMacroSelect = useCallback((macroId: string) => { setActiveMacroId(macroId); setDeepViewSubId(null); }, []);
     const handleSeeMore = useCallback((subId: string) => { setDeepViewSubId(subId); setActiveSubId(subId); productAreaRef.current?.scrollTo({ top: 0 }); }, []);
     const handleBackToVitrina = useCallback(() => { setDeepViewSubId(null); productAreaRef.current?.scrollTo({ top: 0 }); }, []);
-    const handleBackToLanding = useCallback(() => { setActiveMacroId(null); setDeepViewSubId(null); setActiveSubId(null); }, []);
+    const handleBackToLanding = useCallback(() => { setActiveMacroId(null); setDeepViewSubId(null); setActiveSubId(null); setShowFixedSearch(false); }, []);
     const handleSubSelect = useCallback((subId: string) => {
         if (deepViewSubId) { handleSeeMore(subId); return; }
         setActiveSubId(subId); setIsScrollSpy(false);
@@ -317,12 +321,12 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                     FIXED SEARCH — Slides in ONLY when in-flow bar exits viewport
                     ═══════════════════════════════════════════════════════ */}
                 <div
-                    className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ease-out ${showFixedSearch
+                    className={`fixed top-0 left-0 right-0 z-[45] transition-all duration-300 ease-out ${showFixedSearch
                         ? 'translate-y-0 opacity-100'
                         : '-translate-y-full opacity-0 pointer-events-none'
                         }`}
                 >
-                    <div className="max-w-md mx-auto px-5 py-3">
+                    <div className="max-w-md mx-auto px-5 pt-[max(12px,env(safe-area-inset-top))] pb-3">
                         <div className="relative flex items-center h-[50px] rounded-2xl bg-white/80 backdrop-blur-2xl border border-white/70 shadow-[0_4px_20px_rgba(0,0,0,0.1)]">
                             <div className="absolute left-3.5 flex items-center justify-center w-8 h-8 rounded-xl bg-[#5eead4]/15">
                                 <Search className="w-4 h-4 text-[#0d9488]" />
