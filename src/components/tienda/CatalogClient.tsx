@@ -130,6 +130,8 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                         fill
                         className="object-cover"
                         priority
+                        quality={75}
+                        sizes="100vw"
                     />
                     <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/40" />
                 </div>
@@ -176,8 +178,8 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                         {/* Search bar — glassmorphism */}
                         <div
                             className={`relative flex items-center h-[50px] rounded-2xl bg-white/85 backdrop-blur-2xl border transition-all duration-300 ${searchFocused
-                                    ? "border-white bg-white/95 shadow-[0_8px_40px_rgba(255,255,255,0.35)]"
-                                    : "border-white/60 shadow-[0_4px_30px_rgba(255,255,255,0.15)]"
+                                ? "border-white bg-white/95 shadow-[0_8px_40px_rgba(255,255,255,0.35)]"
+                                : "border-white/60 shadow-[0_4px_30px_rgba(255,255,255,0.15)]"
                                 }`}
                         >
                             <div className="absolute left-3.5 flex items-center justify-center w-8 h-8 rounded-xl bg-[#5eead4]/20">

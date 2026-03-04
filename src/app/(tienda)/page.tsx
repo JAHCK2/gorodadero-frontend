@@ -5,8 +5,8 @@ import CatalogClient from "@/components/tienda/CatalogClient"
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
+// ISR: regenerate page every 60s in background — visitors get instant cached response
+export const revalidate = 60;
 
 export default async function HomePage() {
     const supabase = createClient(supabaseUrl, supabaseKey)
