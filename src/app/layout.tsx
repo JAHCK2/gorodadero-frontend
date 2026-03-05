@@ -23,6 +23,16 @@ export const metadata: Metadata = {
         "Pide los mejores productos con delivery rápido. Catálogo de 2500+ productos, pago fácil, entrega a domicilio en El Rodadero.",
     manifest: "/manifest.json",
     keywords: ["GoRodadero", "delivery", "tienda", "El Rodadero", "domicilio", "productos"],
+    icons: {
+        icon: [
+            { url: "/favicon.png", sizes: "32x32", type: "image/png" },
+            { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+            { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+        ],
+        apple: [
+            { url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+        ],
+    },
     openGraph: {
         title: "GoRodadero — Tu tienda, directo a tu puerta",
         description: "Catálogo de 2500+ productos con delivery rápido en El Rodadero.",

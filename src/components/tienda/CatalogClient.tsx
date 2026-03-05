@@ -1,5 +1,6 @@
 "use client";
 
+
 import { useState, useRef, useEffect, useCallback } from "react";
 import { ChevronLeft, Search, MapPin, ChevronRight } from "lucide-react";
 import Image from "next/image";
@@ -17,12 +18,12 @@ import { SearchBar } from "./SearchBar";
    ======================================================================== */
 
 const QUICK_CATEGORIES = [
-    { name: "Cervezas", image: "/images/cat-cervezas.jpg" },
-    { name: "Gaseosas", image: "/images/cat-gaseosas.jpg" },
-    { name: "Aguas", image: "/images/cat-aguas.jpg" },
-    { name: "Snacks", image: "/images/cat-snacks.jpg" },
-    { name: "Licores", image: "/images/cat-licores.jpg" },
-    { name: "Lacteos", image: "/images/cat-lacteos.jpg" },
+    { name: "Cervezas", image: "/images/cat-cervezas.webp" },
+    { name: "Gaseosas", image: "/images/cat-gaseosas.webp" },
+    { name: "Aguas", image: "/images/cat-aguas.webp" },
+    { name: "Snacks", image: "/images/cat-snacks.webp" },
+    { name: "Licores", image: "/images/cat-licores.webp" },
+    { name: "Lacteos", image: "/images/cat-lacteos.webp" },
 ];
 
 /* ========================================================================
@@ -88,11 +89,46 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
         return () => observer.disconnect();
     }, [activeMacroId, activeSubcategories.length, isScrollSpy, deepViewSubId]);
 
+    /* ── HISTORY API — Botón "Atrás" de Android ──
+       Intercepta popstate para navegar por la state machine
+       en vez de salir de la página. Cada transición de estado
+       hace pushState; popstate recorre en reversa. */
+    useEffect(() => {
+        const handlePopState = () => {
+            // Prioridad: modal > deep view > vitrina > landing
+            if (selectedProduct) {
+                setSelectedProduct(null);
+            } else if (deepViewSubId) {
+                setDeepViewSubId(null);
+                productAreaRef.current?.scrollTo({ top: 0 });
+            } else if (activeMacroId) {
+                setActiveMacroId(null);
+                setDeepViewSubId(null);
+                setActiveSubId(null);
+            }
+            // Si estamos en landing (STATE 0), dejamos que el browser navegue normalmente
+        };
+        window.addEventListener("popstate", handlePopState);
+        return () => window.removeEventListener("popstate", handlePopState);
+    }, [selectedProduct, deepViewSubId, activeMacroId]);
 
-    const handleMacroSelect = useCallback((macroId: string) => { setActiveMacroId(macroId); setDeepViewSubId(null); }, []);
-    const handleSeeMore = useCallback((subId: string) => { setDeepViewSubId(subId); setActiveSubId(subId); productAreaRef.current?.scrollTo({ top: 0 }); }, []);
-    const handleBackToVitrina = useCallback(() => { setDeepViewSubId(null); productAreaRef.current?.scrollTo({ top: 0 }); }, []);
-    const handleBackToLanding = useCallback(() => { setActiveMacroId(null); setDeepViewSubId(null); setActiveSubId(null); }, []);
+    const handleMacroSelect = useCallback((macroId: string) => {
+        window.history.pushState({ state: "vitrina" }, "");
+        setActiveMacroId(macroId);
+        setDeepViewSubId(null);
+    }, []);
+    const handleSeeMore = useCallback((subId: string) => {
+        window.history.pushState({ state: "deepView" }, "");
+        setDeepViewSubId(subId);
+        setActiveSubId(subId);
+        productAreaRef.current?.scrollTo({ top: 0 });
+    }, []);
+    const handleBackToVitrina = useCallback(() => { window.history.back(); }, []);
+    const handleBackToLanding = useCallback(() => { window.history.back(); }, []);
+    const handleOpenProduct = useCallback((product: any) => {
+        window.history.pushState({ state: "productModal" }, "");
+        setSelectedProduct(product);
+    }, []);
     const handleSubSelect = useCallback((subId: string) => {
         if (deepViewSubId) { handleSeeMore(subId); return; }
         setActiveSubId(subId); setIsScrollSpy(false);
@@ -118,13 +154,24 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
        ╚════════════════════════════════════════════════════════════════════╝ */
     if (activeMacroId === null) {
         return (
-            <div className="min-h-screen relative">
+            <main className="min-h-screen relative">
                 {/* ═══════════════════════════════════════════════════════
-                    FULL-SCREEN BACKGROUND — Fixed Rodadero photo
+                    FULL-SCREEN BACKGROUND — Aislado en capa GPU propia.
+                    Usa 100lvh (large viewport) para ignorar la barra
+                    de Chrome que aparece/desaparece en Android.
+                    will-change + translateZ(0) = compositing GPU.
                     ═══════════════════════════════════════════════════════ */}
-                <div className="fixed inset-0 z-0">
+                <div
+                    className="fixed top-0 left-0 w-full z-0 pointer-events-none"
+                    style={{
+                        height: "100lvh",
+                        willChange: "transform",
+                        WebkitTransform: "translateZ(0)",
+                        transform: "translateZ(0)",
+                    }}
+                >
                     <Image
-                        src="/images/rodadero-fullscreen.jpg"
+                        src="/images/rodadero-fullscreen.webp"
                         alt=""
                         fill
                         className="object-cover"
@@ -178,22 +225,24 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                     {/* Search bar + delivery chips + fixed scroll overlay */}
                     <SearchBar />
 
-                    {/* ─── LO MÁS PEDIDO — Glassmorphism card ─── */}
+                    {/* ─── LO MÁS PEDIDO — Diseño Neumórfico Táctil ─── */}
                     <section className="px-4 pt-3 pb-2">
-                        <div className="bg-white/80 backdrop-blur-2xl rounded-3xl p-5 shadow-[0_8px_40px_rgba(0,0,0,0.12)] border border-white/50">
+                        <div
+                            className="rounded-3xl p-5 bg-[#3fbfbf]/30 backdrop-blur-2xl border border-white/20"
+                            style={{ boxShadow: "inset 4px 4px 12px rgba(255,255,255,0.15), inset -4px -4px 12px rgba(0,0,0,0.15), 0 8px 32px rgba(0,0,0,0.10)" }}
+                        >
                             <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-lg font-black text-[#1e293b] tracking-tight">
+                                <h2 className="text-[16px] font-black text-white tracking-tight drop-shadow-sm">
                                     Lo más pedido
                                 </h2>
                                 <button
                                     onClick={() => handleMacroSelect(macroCategories[0]?.id || "")}
-                                    className="flex items-center gap-0.5 text-[12px] font-bold text-go-red"
+                                    className="flex items-center gap-0.5 text-[12px] font-bold text-white/70"
                                 >
                                     Ver todo
                                     <ChevronRight className="w-3.5 h-3.5" />
                                 </button>
                             </div>
-
                             <div className="grid grid-cols-3 gap-3">
                                 {QUICK_CATEGORIES.map((cat) => (
                                     <button
@@ -204,16 +253,19 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                                         }}
                                         className="group flex flex-col items-center"
                                     >
-                                        <div className="relative w-full aspect-square rounded-2xl overflow-hidden bg-white shadow-md shadow-black/[0.06] border border-white/80 mb-2 group-hover:shadow-lg group-hover:scale-[1.02] active:scale-95 transition-all duration-200">
+                                        <div
+                                            className="relative w-full aspect-square rounded-2xl overflow-hidden mb-2 transition-all duration-150 active:shadow-[inset_3px_3px_8px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.15)]"
+                                            style={{ boxShadow: "6px 6px 16px rgba(0,0,0,0.25), -4px -4px 12px rgba(255,255,255,0.15)" }}
+                                        >
                                             <Image
                                                 src={cat.image}
                                                 alt={cat.name}
                                                 fill
                                                 className="object-cover group-hover:scale-105 transition-transform duration-300"
                                             />
-                                            <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/20 to-transparent" />
+                                            <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-black/15 rounded-2xl" />
                                         </div>
-                                        <span className="text-[12px] font-bold text-[#1e293b] text-center leading-tight">
+                                        <span className="text-[11px] font-bold text-white/90 text-center leading-tight drop-shadow-sm">
                                             {cat.name}
                                         </span>
                                     </button>
@@ -222,16 +274,19 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                         </div>
                     </section>
 
-                    {/* ─── TODOS LOS PASILLOS — Glassmorphism carousel card ─── */}
+                    {/* ─── TODOS LOS PASILLOS — Neumórfico unificado ─── */}
                     <section className="pt-4 pb-4">
-                        <div className="mx-4 bg-white/80 backdrop-blur-2xl rounded-3xl p-5 shadow-[0_8px_40px_rgba(0,0,0,0.12)] border border-white/50">
+                        <div
+                            className="mx-4 rounded-3xl p-5 bg-[#3fbfbf]/30 backdrop-blur-2xl border border-white/20"
+                            style={{ boxShadow: "inset 4px 4px 12px rgba(255,255,255,0.15), inset -4px -4px 12px rgba(0,0,0,0.15), 0 8px 32px rgba(0,0,0,0.10)" }}
+                        >
                             <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-lg font-black text-[#1e293b] tracking-tight">
+                                <h2 className="text-[16px] font-black text-white tracking-tight drop-shadow-sm">
                                     Todos los pasillos
                                 </h2>
                                 <button
                                     onClick={() => handleMacroSelect(macroCategories[0]?.id || "")}
-                                    className="flex items-center gap-0.5 text-[12px] font-bold text-go-red"
+                                    className="flex items-center gap-0.5 text-[12px] font-bold text-white/70"
                                 >
                                     Ver todos
                                     <ChevronRight className="w-3.5 h-3.5" />
@@ -250,13 +305,15 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                                             onClick={() => handleMacroSelect(macro.id)}
                                             className="group flex-shrink-0 w-24"
                                         >
-                                            <div className="relative w-24 h-24 rounded-2xl overflow-hidden bg-white shadow-md shadow-black/[0.05] border border-white/80 mb-2 group-hover:shadow-lg group-hover:scale-[1.02] active:scale-95 transition-all duration-200 flex items-center justify-center">
+                                            <div
+                                                className="relative w-24 h-24 rounded-2xl overflow-hidden bg-white/10 border border-white/20 mb-2 transition-all duration-300 group-hover:scale-105 active:scale-95 active:shadow-[inset_3px_3px_8px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.15)] flex items-center justify-center"
+                                                style={{ boxShadow: "6px 6px 16px rgba(0,0,0,0.25), -4px -4px 12px rgba(255,255,255,0.15)" }}
+                                            >
                                                 <span className="text-3xl group-hover:scale-110 transition-transform duration-300">
                                                     {macro.icon || "📦"}
                                                 </span>
-                                                <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/10 to-transparent" />
                                             </div>
-                                            <span className="text-[11px] font-bold text-[#1e293b] text-center leading-tight block">
+                                            <span className="text-[11px] font-bold text-white/90 text-center leading-tight block drop-shadow-sm">
                                                 {macro.name}
                                             </span>
                                         </button>
@@ -269,7 +326,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
 
                 {/* Product Detail Modal */}
                 {selectedProduct && (
-                    <ProductDetailModal product={selectedProduct} allProducts={initialProducts} onClose={() => setSelectedProduct(null)} />
+                    <ProductDetailModal product={selectedProduct} allProducts={initialProducts} onClose={() => window.history.back()} />
                 )}
 
                 {/* Bottom Navigation */}
@@ -278,7 +335,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                     onInicioClick={() => { }}
                     onPasillosClick={() => handleMacroSelect(macroCategories[0]?.id || "")}
                 />
-            </div>
+            </main>
         );
     }
 
@@ -349,7 +406,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                                             subcategoryId={sub.id}
                                             subcategoryName={sub.name}
                                             products={subProducts}
-                                            onProductClick={setSelectedProduct}
+                                            onProductClick={handleOpenProduct}
                                             onSeeMore={() => handleSeeMore(sub.id)}
                                         />
                                     );
@@ -367,7 +424,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                                 return (
                                     <div className="grid grid-cols-2 gap-2.5 px-3 py-4 pb-24">
                                         {deepProducts.length > 0 ? deepProducts.map((product) => (
-                                            <CatalogProductCard key={product.id} product={product} onClick={() => setSelectedProduct(product)} />
+                                            <CatalogProductCard key={product.id} product={product} onClick={() => handleOpenProduct(product)} />
                                         )) : (
                                             <div className="col-span-2 text-center py-12 text-gray-400">
                                                 <p className="text-sm">No hay productos en esta subcategoría.</p>
@@ -383,7 +440,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                 <PasillosFab onClick={handleBackToLanding} />
 
                 {selectedProduct && (
-                    <ProductDetailModal product={selectedProduct} allProducts={initialProducts} onClose={() => setSelectedProduct(null)} />
+                    <ProductDetailModal product={selectedProduct} allProducts={initialProducts} onClose={() => window.history.back()} />
                 )}
             </div>
 
