@@ -12,6 +12,7 @@ import { PasillosFab } from "./PasillosFab";
 import { ProductDetailModal } from "./ProductDetailModal";
 import { BottomNav } from "./BottomNav";
 import { SearchBar } from "./SearchBar";
+import { useCartStore } from "@/store/cartStore";
 
 /* ========================================================================
    DATA — Quick-access categories for landing (real images)
@@ -60,6 +61,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
     const [deepViewSubId, setDeepViewSubId] = useState<string | null>(null);
     const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
     const [isScrollSpy, setIsScrollSpy] = useState(true);
+    const cartItemCount = useCartStore((s) => s.getItemCount());
 
     const productAreaRef = useRef<HTMLDivElement>(null);
     const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -334,6 +336,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                     activeTab="inicio"
                     onInicioClick={() => { }}
                     onPasillosClick={() => handleMacroSelect(macroCategories[0]?.id || "")}
+                    cartCount={cartItemCount}
                 />
             </main>
         );
@@ -449,6 +452,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                 activeTab="pasillos"
                 onInicioClick={handleBackToLanding}
                 onPasillosClick={() => { }}
+                cartCount={cartItemCount}
             />
         </div>
     );

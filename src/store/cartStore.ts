@@ -1,5 +1,6 @@
 // ═══════════════════════════════════════════
 // GoRodadero — Store del Carrito (Zustand)
+// Zero-Float Rule: todas las sumas en enteros
 // ═══════════════════════════════════════════
 
 import { create } from "zustand";
@@ -14,6 +15,7 @@ interface CartState {
     clearCart: () => void;
     getTotal: () => number;
     getItemCount: () => number;
+    getItemQuantity: (productId: string) => number;
 }
 
 export const useCartStore = create<CartState>()(
@@ -63,10 +65,11 @@ export const useCartStore = create<CartState>()(
 
             clearCart: () => set({ items: [] }),
 
+            // Zero-Float: multiply integers, no floating point
             getTotal: () => {
                 return get().items.reduce(
                     (total, item) =>
-                        total + Number(item.product.sell_price) * item.quantity,
+                        total + Math.round(Number(item.product.sellPrice)) * item.quantity,
                     0
                 );
             },
@@ -76,6 +79,11 @@ export const useCartStore = create<CartState>()(
                     (count, item) => count + item.quantity,
                     0
                 );
+            },
+
+            getItemQuantity: (productId: string) => {
+                const item = get().items.find(i => i.product.id === productId);
+                return item?.quantity || 0;
             },
         }),
         {

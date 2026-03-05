@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { Plus } from "lucide-react";
 import { GoLogoFull } from "./GoLogoFull";
+import { CartButton } from "./CartButton";
 
 export function GoWatermark() {
     return (
@@ -18,13 +18,21 @@ interface CatalogProductCardProps {
 }
 
 export function CatalogProductCard({ product, onClick }: CatalogProductCardProps) {
-    // Safely parse prices (handles both Prisma Decimal and pre-mapped Number)
+    // Safely parse prices (handles both camelCase and snake_case)
     const sellPrice = Number(product.sellPrice || product.sell_price || 0);
     const originalPrice = product.originalPrice ? Number(product.originalPrice) : null;
     const discount = product.discountPercentage ? Number(product.discountPercentage) : null;
 
     const formattedPrice = `$${sellPrice.toLocaleString("es-CO")}`;
     const formattedOriginal = originalPrice ? `$${originalPrice.toLocaleString("es-CO")}` : null;
+
+    // Normalize product for cart (ensure camelCase sellPrice)
+    const normalizedProduct = {
+        ...product,
+        sellPrice,
+        originalPrice,
+        discountPercentage: discount,
+    };
 
     return (
         <div
@@ -45,14 +53,8 @@ export function CatalogProductCard({ product, onClick }: CatalogProductCardProps
                     <GoWatermark />
                 )}
 
-                {/* Green floating add button (Rappi-style) */}
-                <button
-                    className="absolute top-2 right-2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500 text-white shadow-md shadow-emerald-500/30 active:scale-90 transition-transform"
-                    aria-label={`Añadir ${product.name} al carrito`}
-                    onClick={(e) => { e.stopPropagation(); }}
-                >
-                    <Plus className="w-4.5 h-4.5" strokeWidth={2.5} />
-                </button>
+                {/* Smart cart button — shows +, or -/qty/+ */}
+                <CartButton product={normalizedProduct} />
             </div>
 
             {/* Product info */}
