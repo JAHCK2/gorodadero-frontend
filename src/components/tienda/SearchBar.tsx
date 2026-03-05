@@ -2,68 +2,51 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Search, Truck, X } from "lucide-react";
+import Image from "next/image";
 
 /* ════════════════════════════════════════════════════════════════════════════
    SearchBar — Barra Sticky Seamless con Motor Fuzzy
    ════════════════════════════════════════════════════════════════════════════
 
-   COMPORTAMIENTO:
-   - UNA SOLA barra, UN SOLO diseño.
-   - Vive en el flujo normal del documento (debajo del logo).
-   - Cuando el usuario scrollea hacia abajo y la barra llega al tope
-     de la pantalla, se queda fija ahí (position: sticky).
-   - Cuando el usuario scrollea de vuelta, la barra baja a su lugar.
-   - Cero transiciones, cero cambios visuales, cero duplicados.
-
-   MOTOR:
-   - Fuzzy token search con mock products.
-   - Dropdown de resultados al vuelo.
-   - Enter cierra teclado, backdrop previene click-through.
-   - History API para botón Atrás de Android.
+   Ahora conectado a los 2,253 productos reales de Supabase.
+   Recibe `products` como prop desde CatalogClient.
 
    ══════════════════════════════════════════════════════════════════════════ */
 
 /* ─────────────────────────────────────────────────────────────
-   MOCK DATA
+   TYPES + FUZZY ENGINE
    ───────────────────────────────────────────────────────────── */
 
-const MOCK_PRODUCTS = [
-    { id: "1", name: "Jabón Fab 250gr", category: "Aseo", sellPrice: 4500, imageUrl: null },
-    { id: "2", name: "Coca Cola Original 400ml", category: "Gaseosas", sellPrice: 3200, imageUrl: null },
-    { id: "3", name: "Papas Margarita Natural 105gr", category: "Snacks", sellPrice: 5800, imageUrl: null },
-    { id: "4", name: "Agua Cristal Sin Gas 600ml", category: "Aguas", sellPrice: 2500, imageUrl: null },
-    { id: "5", name: "Jabón Protex Avena 120gr", category: "Aseo", sellPrice: 6200, imageUrl: null },
-];
-
-/* ─────────────────────────────────────────────────────────────
-   FUZZY TOKEN SEARCH ENGINE
-   ───────────────────────────────────────────────────────────── */
-
-interface MockProduct {
+interface SearchProduct {
     id: string;
     name: string;
-    category: string;
     sellPrice: number;
     imageUrl: string | null;
+    categoryId?: string;
 }
 
-function fuzzySearch(products: MockProduct[], query: string): MockProduct[] {
-    const q = query.toLowerCase().trim();
+interface SearchBarProps {
+    products?: SearchProduct[];
+}
+
+function fuzzySearch(products: SearchProduct[], query: string): SearchProduct[] {
+    const q = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
     if (!q) return [];
     const tokens = q.split(/\s+/).filter(Boolean);
     return products
         .filter((p) => {
-            const haystack = `${p.name} ${p.category} ${p.sellPrice}`.toLowerCase();
+            const haystack = p.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             return tokens.every((token) => haystack.includes(token));
         })
-        .sort((a, b) => a.name.localeCompare(b.name, "es"));
+        .sort((a, b) => a.name.localeCompare(b.name, "es"))
+        .slice(0, 20); // Cap results for performance
 }
 
 /* ═════════════════════════════════════════════════════════════
    COMPONENTE PRINCIPAL
    ═════════════════════════════════════════════════════════════ */
 
-export function SearchBar() {
+export function SearchBar({ products = [] }: SearchBarProps) {
     /* ── Estado ── */
     const [query, setQuery] = useState("");
     const [isActive, setIsActive] = useState(false);
@@ -72,7 +55,7 @@ export function SearchBar() {
     const inputRef = useRef<HTMLInputElement>(null);
 
     /* ── Fuzzy Search Results ── */
-    const results = useMemo(() => fuzzySearch(MOCK_PRODUCTS, query), [query]);
+    const results = useMemo(() => fuzzySearch(products, query), [products, query]);
     const showDropdown = isActive && query.trim().length > 0;
 
     /* ── HISTORY API — Botón "Atrás" de Android ── */
@@ -138,9 +121,9 @@ export function SearchBar() {
                                 setIsActive(false);
                             }}
                         >
-                            <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
+                            <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden">
                                 {product.imageUrl ? (
-                                    <img src={product.imageUrl} alt="" className="w-full h-full object-cover rounded-xl" />
+                                    <Image src={product.imageUrl} alt="" width={40} height={40} className="w-full h-full object-contain" />
                                 ) : (
                                     <Search className="w-4 h-4 text-gray-300" />
                                 )}
@@ -150,7 +133,7 @@ export function SearchBar() {
                                     {product.name}
                                 </p>
                                 <p className="text-xs text-gray-400">
-                                    {product.category} · ${product.sellPrice.toLocaleString("es-CO")}
+                                    ${product.sellPrice.toLocaleString("es-CO")}
                                 </p>
                             </div>
                         </button>

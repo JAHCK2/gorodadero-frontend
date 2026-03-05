@@ -1,7 +1,6 @@
 "use client";
 
-
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { ChevronLeft, Search, MapPin, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import { GoLogoFull } from "./GoLogoFull";
@@ -13,19 +12,6 @@ import { ProductDetailModal } from "./ProductDetailModal";
 import { BottomNav } from "./BottomNav";
 import { SearchBar } from "./SearchBar";
 import { useCartStore } from "@/store/cartStore";
-
-/* ========================================================================
-   DATA — Quick-access categories for landing (real images)
-   ======================================================================== */
-
-const QUICK_CATEGORIES = [
-    { name: "Cervezas", image: "/images/cat-cervezas.webp" },
-    { name: "Gaseosas", image: "/images/cat-gaseosas.webp" },
-    { name: "Aguas", image: "/images/cat-aguas.webp" },
-    { name: "Snacks", image: "/images/cat-snacks.webp" },
-    { name: "Licores", image: "/images/cat-licores.webp" },
-    { name: "Lacteos", image: "/images/cat-lacteos.webp" },
-];
 
 /* ========================================================================
    TYPES
@@ -140,15 +126,12 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
     }, [deepViewSubId]);
     const setSectionRef = useCallback((id: string, el: HTMLDivElement | null) => { if (el) sectionRefs.current.set(id, el); else sectionRefs.current.delete(id); }, []);
 
-    // Find macro by keyword
-    const findMacroForQuickCat = useCallback((quickName: string) => {
-        const term = quickName.toLowerCase();
-        const matchSub = subcategories.find(s => s.name.toLowerCase().includes(term) || s.slug.includes(term));
-        if (matchSub) return matchSub.parentId;
-        const matchMacro = macroCategories.find(m => m.name.toLowerCase().includes(term) || m.slug.includes(term));
-        if (matchMacro) return matchMacro.id;
-        return macroCategories[0]?.id || null;
-    }, [macroCategories, subcategories]);
+    // Sorted macro-categories for HOME display
+    const sortedMacros = useMemo(
+        () => [...macroCategories].sort((a, b) => a.sortOrder - b.sortOrder),
+        [macroCategories]
+    );
+    const topMacros = sortedMacros.slice(0, 6);
 
 
     /* ╔════════════════════════════════════════════════════════════════════╗
@@ -224,10 +207,10 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                         </div>
                     </section>
 
-                    {/* Search bar + delivery chips + fixed scroll overlay */}
-                    <SearchBar />
+                    {/* Search bar + delivery chips — connected to real products */}
+                    <SearchBar products={initialProducts} />
 
-                    {/* ─── LO MÁS PEDIDO — Diseño Neumórfico Táctil ─── */}
+                    {/* ─── LO MÁS PEDIDO — Top 6 Macro-categorías ─── */}
                     <section className="px-4 pt-3 pb-2">
                         <div
                             className="rounded-3xl p-5 bg-[#3fbfbf]/30 backdrop-blur-2xl border border-white/20"
@@ -238,7 +221,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                                     Lo más pedido
                                 </h2>
                                 <button
-                                    onClick={() => handleMacroSelect(macroCategories[0]?.id || "")}
+                                    onClick={() => handleMacroSelect(sortedMacros[0]?.id || "")}
                                     className="flex items-center gap-0.5 text-[12px] font-bold text-white/70"
                                 >
                                     Ver todo
@@ -246,29 +229,23 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                                 </button>
                             </div>
                             <div className="grid grid-cols-3 gap-3">
-                                {QUICK_CATEGORIES.map((cat) => (
+                                {topMacros.map((macro) => (
                                     <button
-                                        key={cat.name}
-                                        onClick={() => {
-                                            const macroId = findMacroForQuickCat(cat.name);
-                                            if (macroId) handleMacroSelect(macroId);
-                                        }}
+                                        key={macro.id}
+                                        onClick={() => handleMacroSelect(macro.id)}
                                         className="group flex flex-col items-center"
                                     >
                                         <div
-                                            className="relative w-full aspect-square rounded-2xl overflow-hidden mb-2 transition-all duration-150 active:shadow-[inset_3px_3px_8px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.15)]"
+                                            className="relative w-full aspect-square rounded-2xl overflow-hidden mb-2 transition-all duration-150 active:shadow-[inset_3px_3px_8px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.15)] bg-white/10 border border-white/20 flex items-center justify-center"
                                             style={{ boxShadow: "6px 6px 16px rgba(0,0,0,0.25), -4px -4px 12px rgba(255,255,255,0.15)" }}
                                         >
-                                            <Image
-                                                src={cat.image}
-                                                alt={cat.name}
-                                                fill
-                                                className="object-cover group-hover:scale-105 transition-transform duration-300"
-                                            />
+                                            <span className="text-4xl group-hover:scale-110 transition-transform duration-300">
+                                                {macro.icon || "📦"}
+                                            </span>
                                             <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-black/15 rounded-2xl" />
                                         </div>
                                         <span className="text-[11px] font-bold text-white/90 text-center leading-tight drop-shadow-sm">
-                                            {cat.name}
+                                            {macro.name}
                                         </span>
                                     </button>
                                 ))}
@@ -286,40 +263,31 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                                 <h2 className="text-[16px] font-black text-white tracking-tight drop-shadow-sm">
                                     Todos los pasillos
                                 </h2>
-                                <button
-                                    onClick={() => handleMacroSelect(macroCategories[0]?.id || "")}
-                                    className="flex items-center gap-0.5 text-[12px] font-bold text-white/70"
-                                >
-                                    Ver todos
-                                    <ChevronRight className="w-3.5 h-3.5" />
-                                </button>
                             </div>
 
                             <div
                                 className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1"
                                 style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
                             >
-                                {macroCategories
-                                    .sort((a, b) => a.sortOrder - b.sortOrder)
-                                    .map((macro) => (
-                                        <button
-                                            key={macro.id}
-                                            onClick={() => handleMacroSelect(macro.id)}
-                                            className="group flex-shrink-0 w-24"
+                                {sortedMacros.map((macro) => (
+                                    <button
+                                        key={macro.id}
+                                        onClick={() => handleMacroSelect(macro.id)}
+                                        className="group flex-shrink-0 w-24"
+                                    >
+                                        <div
+                                            className="relative w-24 h-24 rounded-2xl overflow-hidden bg-white/10 border border-white/20 mb-2 transition-all duration-300 group-hover:scale-105 active:scale-95 active:shadow-[inset_3px_3px_8px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.15)] flex items-center justify-center"
+                                            style={{ boxShadow: "6px 6px 16px rgba(0,0,0,0.25), -4px -4px 12px rgba(255,255,255,0.15)" }}
                                         >
-                                            <div
-                                                className="relative w-24 h-24 rounded-2xl overflow-hidden bg-white/10 border border-white/20 mb-2 transition-all duration-300 group-hover:scale-105 active:scale-95 active:shadow-[inset_3px_3px_8px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.15)] flex items-center justify-center"
-                                                style={{ boxShadow: "6px 6px 16px rgba(0,0,0,0.25), -4px -4px 12px rgba(255,255,255,0.15)" }}
-                                            >
-                                                <span className="text-3xl group-hover:scale-110 transition-transform duration-300">
-                                                    {macro.icon || "📦"}
-                                                </span>
-                                            </div>
-                                            <span className="text-[11px] font-bold text-white/90 text-center leading-tight block drop-shadow-sm">
-                                                {macro.name}
+                                            <span className="text-3xl group-hover:scale-110 transition-transform duration-300">
+                                                {macro.icon || "📦"}
                                             </span>
-                                        </button>
-                                    ))}
+                                        </div>
+                                        <span className="text-[11px] font-bold text-white/90 text-center leading-tight block drop-shadow-sm">
+                                            {macro.name}
+                                        </span>
+                                    </button>
+                                ))}
                             </div>
                         </div>
                     </section>
