@@ -21,7 +21,7 @@ export default async function AdminCategoriasPage() {
             .order("sort_order", { ascending: true }),
         supabase
             .from("products")
-            .select("id, name, sell_price, category_id")
+            .select("id, name, sell_price, buy_price, stock, category_id, unit_type, unit_value, barcode")
             .order("name", { ascending: true })
             .limit(5000),
     ]);
@@ -42,7 +42,12 @@ export default async function AdminCategoriasPage() {
         id: p.id,
         name: p.name,
         sellPrice: Number(p.sell_price) || 0,
+        buyPrice: Number(p.buy_price) || 0,
+        stock: Number(p.stock) || 0,
         categoryId: p.category_id,
+        unitType: p.unit_type || "",
+        unitValue: p.unit_value != null ? Number(p.unit_value) : null,
+        barcode: p.barcode || "",
     }));
 
     return (
