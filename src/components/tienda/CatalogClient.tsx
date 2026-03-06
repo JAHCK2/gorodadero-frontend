@@ -48,6 +48,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
     const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
     const [isScrollSpy, setIsScrollSpy] = useState(true);
     const cartItemCount = useCartStore((s) => s.getItemCount());
+    const [isSearchActive, setIsSearchActive] = useState(false);
 
     const productAreaRef = useRef<HTMLDivElement>(null);
     const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -208,7 +209,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                     </section>
 
                     {/* Search bar + delivery chips — connected to real products */}
-                    <SearchBar products={initialProducts} />
+                    <SearchBar products={initialProducts} onActiveChange={setIsSearchActive} />
 
                     {/* ─── LO MÁS PEDIDO — Top 6 Macro-categorías ─── */}
                     <section className="px-4 pt-3 pb-2">
@@ -299,13 +300,15 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                     <ProductDetailModal product={selectedProduct} allProducts={initialProducts} onClose={() => window.history.back()} />
                 )}
 
-                {/* Bottom Navigation */}
-                <BottomNav
-                    activeTab="inicio"
-                    onInicioClick={() => { }}
-                    onPasillosClick={() => handleMacroSelect(macroCategories[0]?.id || "")}
-                    cartCount={cartItemCount}
-                />
+                {/* Bottom Navigation — hidden during search overlay */}
+                {!isSearchActive && (
+                    <BottomNav
+                        activeTab="inicio"
+                        onInicioClick={() => { }}
+                        onPasillosClick={() => handleMacroSelect(macroCategories[0]?.id || "")}
+                        cartCount={cartItemCount}
+                    />
+                )}
             </main>
         );
     }

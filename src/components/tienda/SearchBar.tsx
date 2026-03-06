@@ -33,45 +33,17 @@ interface SearchProduct {
 
 interface SearchBarProps {
     products?: SearchProduct[];
+    onActiveChange?: (active: boolean) => void;
 }
 
 /* ─────────────────────────────────────────────────────────────
-   SYNONYM DICTIONARY — Mapeo de lenguaje natural a estándar DB
+   SMART FUZZY ENGINE — Barcode priority + pure fuzzy match
    ───────────────────────────────────────────────────────────── */
 
-const UNIT_SYNONYMS: [RegExp, string][] = [
-    // Litros
-    [/\blitros?\b/gi, "L"],
-    [/\blts?\b/gi, "L"],
-    // Mililitros
-    [/\bmililitros?\b/gi, "ml"],
-    // Kilogramos
-    [/\bkilos?\b/gi, "kg"],
-    [/\bkilogramos?\b/gi, "kg"],
-    // Gramos
-    [/\bgramos?\b/gi, "g"],
-    // Centímetros cúbicos
-    [/\bcentimetros?\s*cubicos?\b/gi, "cc"],
-    // Onzas
-    [/\bonzas?\b/gi, "oz"],
-    // Unidades
-    [/\bunidades?\b/gi, "und"],
-    // Libras
-    [/\blibras?\b/gi, "lb"],
-];
-
-/** Pre-procesa la query: normaliza acentos + traduce sinónimos */
-function preprocessQuery(raw: string): string {
-    let q = raw.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-    for (const [pattern, replacement] of UNIT_SYNONYMS) {
-        q = q.replace(pattern, replacement.toLowerCase());
-    }
-    return q;
+/** Normaliza: lowercase + strip acentos */
+function normalize(s: string): string {
+    return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 }
-
-/* ─────────────────────────────────────────────────────────────
-   SMART FUZZY ENGINE — Barcode priority + synonym-aware
-   ───────────────────────────────────────────────────────────── */
 
 function smartSearch(products: SearchProduct[], query: string): SearchProduct[] {
     const raw = query.trim();
@@ -82,34 +54,33 @@ function smartSearch(products: SearchProduct[], query: string): SearchProduct[] 
         (p) => p.barcode && p.barcode === raw
     );
     if (barcodeMatch) {
-        // Return barcode hit first, then fuzzy results (without the exact match)
         const rest = fuzzyTokenSearch(products, raw).filter(p => p.id !== barcodeMatch.id);
-        return [barcodeMatch, ...rest].slice(0, 20);
+        return [barcodeMatch, ...rest].slice(0, 50);
     }
 
-    // ── 2) FUZZY TOKEN SEARCH con sinónimos ──
+    // ── 2) PURE FUZZY TOKEN SEARCH ──
     return fuzzyTokenSearch(products, raw);
 }
 
 function fuzzyTokenSearch(products: SearchProduct[], raw: string): SearchProduct[] {
-    const processed = preprocessQuery(raw);
+    const processed = normalize(raw);
     if (!processed) return [];
     const tokens = processed.split(/\s+/).filter(Boolean);
 
     return products
         .filter((p) => {
-            const haystack = p.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const haystack = normalize(p.name);
             return tokens.every((token) => haystack.includes(token));
         })
         .sort((a, b) => a.name.localeCompare(b.name, "es"))
-        .slice(0, 20);
+        .slice(0, 50);
 }
 
 /* ═════════════════════════════════════════════════════════════
    COMPONENTE PRINCIPAL
    ═════════════════════════════════════════════════════════════ */
 
-export function SearchBar({ products = [] }: SearchBarProps) {
+export function SearchBar({ products = [], onActiveChange }: SearchBarProps) {
     const [query, setQuery] = useState("");
     const [isActive, setIsActive] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -140,11 +111,13 @@ export function SearchBar({ products = [] }: SearchBarProps) {
         setIsActive(false);
         setQuery("");
         inputRef.current?.blur();
-    }, []);
+        onActiveChange?.(false);
+    }, [onActiveChange]);
 
     const handleFocus = useCallback(() => {
         setIsActive(true);
-    }, []);
+        onActiveChange?.(true);
+    }, [onActiveChange]);
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (e.key === "Enter") {
