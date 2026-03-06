@@ -15,18 +15,22 @@ interface SidebarProps {
     useIdForSelection?: boolean;
 }
 
+/**
+ * Sidebar — Left-side vertical navigation for Deep View.
+ * Active category gets a full-width green diffused band + ring on circle.
+ * Auto-scrolls to keep active button centered in viewport.
+ */
 export function Sidebar({ categories, activeCategory, onSelect, useIdForSelection = false }: SidebarProps) {
     const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
-    // Auto-scroll the active button into view (centered)
+    // Auto-scroll the active button into view (centered in sidebar)
     useEffect(() => {
         if (!activeCategory) return;
-        const key = useIdForSelection ? activeCategory : activeCategory;
-        const btn = buttonRefs.current.get(key);
+        const btn = buttonRefs.current.get(activeCategory);
         if (btn) {
             btn.scrollIntoView({ behavior: "smooth", block: "center" });
         }
-    }, [activeCategory, useIdForSelection]);
+    }, [activeCategory]);
 
     return (
         <div
@@ -45,18 +49,24 @@ export function Sidebar({ categories, activeCategory, onSelect, useIdForSelectio
                             else buttonRefs.current.delete(key);
                         }}
                         onClick={() => onSelect(key)}
-                        className={`relative w-full flex flex-col items-center gap-1.5 px-1 py-3 transition-all`}
+                        className={`
+                            relative w-full flex flex-col items-center gap-1.5 px-1 py-3 transition-all
+                            ${isActive ? "bg-emerald-50/80" : ""}
+                        `}
                     >
-                        {/* Active indicator bar (green, left side) */}
+                        {/* Active: full-width diffused green band from left edge */}
                         {isActive && (
-                            <div className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-emerald-500" />
+                            <div
+                                className="absolute inset-0 bg-gradient-to-r from-emerald-400/30 via-emerald-100/40 to-transparent"
+                                style={{ borderLeft: "4px solid #10b981" }}
+                            />
                         )}
 
                         {/* Category image circle */}
                         <div
-                            className={`flex items-center justify-center w-12 h-12 rounded-full overflow-hidden transition-all ${isActive
-                                ? "ring-2 ring-emerald-500 ring-offset-1"
-                                : "bg-gray-50"
+                            className={`relative z-10 flex items-center justify-center w-12 h-12 rounded-full overflow-hidden transition-all ${isActive
+                                    ? "ring-[2.5px] ring-emerald-500 ring-offset-2 bg-white shadow-md"
+                                    : "bg-gray-50"
                                 }`}
                         >
                             <span className="text-xl">
@@ -66,7 +76,9 @@ export function Sidebar({ categories, activeCategory, onSelect, useIdForSelectio
 
                         {/* Category name */}
                         <span
-                            className={`text-[10px] leading-tight text-center font-semibold transition-colors line-clamp-2 max-w-[72px] ${isActive ? "text-emerald-600 font-bold" : "text-gray-600"
+                            className={`relative z-10 text-[10px] leading-tight text-center font-semibold transition-colors line-clamp-2 max-w-[72px] ${isActive
+                                    ? "text-emerald-700 font-bold"
+                                    : "text-gray-500"
                                 }`}
                         >
                             {cat.name}
