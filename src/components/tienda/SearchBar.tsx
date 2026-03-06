@@ -19,7 +19,7 @@ import { useCartStore } from "@/store/cartStore";
    ══════════════════════════════════════════════════════════════════════════ */
 
 /* ─────────────────────────────────────────────────────────────
-   TYPES + FUZZY ENGINE
+   TYPES
    ───────────────────────────────────────────────────────────── */
 
 interface SearchProduct {
@@ -28,16 +28,74 @@ interface SearchProduct {
     sellPrice: number;
     imageUrl: string | null;
     categoryId?: string;
+    barcode?: string | null;
 }
 
 interface SearchBarProps {
     products?: SearchProduct[];
 }
 
-function fuzzySearch(products: SearchProduct[], query: string): SearchProduct[] {
-    const q = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-    if (!q) return [];
-    const tokens = q.split(/\s+/).filter(Boolean);
+/* ─────────────────────────────────────────────────────────────
+   SYNONYM DICTIONARY — Mapeo de lenguaje natural a estándar DB
+   ───────────────────────────────────────────────────────────── */
+
+const UNIT_SYNONYMS: [RegExp, string][] = [
+    // Litros
+    [/\blitros?\b/gi, "L"],
+    [/\blts?\b/gi, "L"],
+    // Mililitros
+    [/\bmililitros?\b/gi, "ml"],
+    // Kilogramos
+    [/\bkilos?\b/gi, "kg"],
+    [/\bkilogramos?\b/gi, "kg"],
+    // Gramos
+    [/\bgramos?\b/gi, "g"],
+    // Centímetros cúbicos
+    [/\bcentimetros?\s*cubicos?\b/gi, "cc"],
+    // Onzas
+    [/\bonzas?\b/gi, "oz"],
+    // Unidades
+    [/\bunidades?\b/gi, "und"],
+    // Libras
+    [/\blibras?\b/gi, "lb"],
+];
+
+/** Pre-procesa la query: normaliza acentos + traduce sinónimos */
+function preprocessQuery(raw: string): string {
+    let q = raw.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    for (const [pattern, replacement] of UNIT_SYNONYMS) {
+        q = q.replace(pattern, replacement.toLowerCase());
+    }
+    return q;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SMART FUZZY ENGINE — Barcode priority + synonym-aware
+   ───────────────────────────────────────────────────────────── */
+
+function smartSearch(products: SearchProduct[], query: string): SearchProduct[] {
+    const raw = query.trim();
+    if (!raw) return [];
+
+    // ── 1) BARCODE EXACT MATCH (máxima prioridad) ──
+    const barcodeMatch = products.find(
+        (p) => p.barcode && p.barcode === raw
+    );
+    if (barcodeMatch) {
+        // Return barcode hit first, then fuzzy results (without the exact match)
+        const rest = fuzzyTokenSearch(products, raw).filter(p => p.id !== barcodeMatch.id);
+        return [barcodeMatch, ...rest].slice(0, 20);
+    }
+
+    // ── 2) FUZZY TOKEN SEARCH con sinónimos ──
+    return fuzzyTokenSearch(products, raw);
+}
+
+function fuzzyTokenSearch(products: SearchProduct[], raw: string): SearchProduct[] {
+    const processed = preprocessQuery(raw);
+    if (!processed) return [];
+    const tokens = processed.split(/\s+/).filter(Boolean);
+
     return products
         .filter((p) => {
             const haystack = p.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -57,7 +115,7 @@ export function SearchBar({ products = [] }: SearchBarProps) {
     const inputRef = useRef<HTMLInputElement>(null);
     const addItem = useCartStore((s) => s.addItem);
 
-    const results = useMemo(() => fuzzySearch(products, query), [products, query]);
+    const results = useMemo(() => smartSearch(products, query), [products, query]);
 
     /* ── HISTORY API — Botón "Atrás" de Android ── */
     useEffect(() => {
