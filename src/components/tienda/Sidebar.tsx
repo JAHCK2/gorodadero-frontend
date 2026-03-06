@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef, useEffect } from "react";
+
 interface SidebarCategory {
     id: string;
     name: string;
@@ -14,20 +16,35 @@ interface SidebarProps {
 }
 
 export function Sidebar({ categories, activeCategory, onSelect, useIdForSelection = false }: SidebarProps) {
+    const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+
+    // Auto-scroll the active button into view (centered)
+    useEffect(() => {
+        if (!activeCategory) return;
+        const key = useIdForSelection ? activeCategory : activeCategory;
+        const btn = buttonRefs.current.get(key);
+        if (btn) {
+            btn.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+    }, [activeCategory, useIdForSelection]);
+
     return (
         <div
             className="w-[85px] flex-shrink-0 bg-white overflow-y-auto border-r border-gray-100"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
             {categories.map((cat) => {
-                const isActive = useIdForSelection
-                    ? activeCategory === cat.id
-                    : activeCategory === cat.name;
+                const key = useIdForSelection ? cat.id : cat.name;
+                const isActive = activeCategory === key;
 
                 return (
                     <button
                         key={cat.id || cat.name}
-                        onClick={() => onSelect(useIdForSelection ? cat.id : cat.name)}
+                        ref={(el) => {
+                            if (el) buttonRefs.current.set(key, el);
+                            else buttonRefs.current.delete(key);
+                        }}
+                        onClick={() => onSelect(key)}
                         className={`relative w-full flex flex-col items-center gap-1.5 px-1 py-3 transition-all`}
                     >
                         {/* Active indicator bar (green, left side) */}
@@ -38,8 +55,8 @@ export function Sidebar({ categories, activeCategory, onSelect, useIdForSelectio
                         {/* Category image circle */}
                         <div
                             className={`flex items-center justify-center w-12 h-12 rounded-full overflow-hidden transition-all ${isActive
-                                    ? "ring-2 ring-emerald-500 ring-offset-1"
-                                    : "bg-gray-50"
+                                ? "ring-2 ring-emerald-500 ring-offset-1"
+                                : "bg-gray-50"
                                 }`}
                         >
                             <span className="text-xl">

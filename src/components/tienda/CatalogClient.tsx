@@ -79,7 +79,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
         if (!container) return;
         const observer = new IntersectionObserver(
             (entries) => { for (const e of entries) if (e.isIntersecting) { const id = e.target.getAttribute("data-subcategory-id"); if (id) setActiveSubId(id); } },
-            { root: container, rootMargin: "-10% 0px -70% 0px", threshold: 0 }
+            { root: container, rootMargin: "-20% 0px -60% 0px", threshold: 0 }
         );
         sectionRefs.current.forEach((el) => { if (el) observer.observe(el); });
         return () => observer.disconnect();
@@ -123,11 +123,20 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
         setDeepViewSubId(null);
     }, []);
 
-    /** Quick-link: jump directly to a subcategory's Deep View */
-    const handleQuickLink = useCallback((subSlug: string) => {
-        const sub = subcategories.find(s => s.slug === subSlug);
+    /** Quick-link: jump directly to a subcategory or macro's Deep View */
+    const handleQuickLink = useCallback((slug: string) => {
+        // 1. Check if it's a macro-category first
+        const macro = macroCategories.find(m => m.slug === slug);
+        if (macro) {
+            window.history.pushState({ state: "deepView" }, "");
+            setNavState("deepView");
+            setActiveMacroId(macro.id);
+            setDeepViewSubId(null);
+            return;
+        }
+        // 2. It's a subcategory — find parent macro and scroll to it
+        const sub = subcategories.find(s => s.slug === slug);
         if (!sub) return;
-        // Navigate to the parent macro + auto-scroll to subcategory
         window.history.pushState({ state: "deepView" }, "");
         setNavState("deepView");
         setActiveMacroId(sub.parentId);
@@ -136,9 +145,15 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
         setTimeout(() => {
             setActiveSubId(sub.id);
             const el = sectionRefs.current.get(sub.id);
-            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-        }, 150);
-    }, [subcategories]);
+            if (el) {
+                const container = productAreaRef.current;
+                if (container) {
+                    const elTop = el.offsetTop;
+                    container.scrollTo({ top: elTop, behavior: "smooth" });
+                }
+            }
+        }, 200);
+    }, [macroCategories, subcategories]);
 
     const handleSeeMore = useCallback((subId: string) => {
         window.history.pushState({ state: "deepSubView" }, "");
