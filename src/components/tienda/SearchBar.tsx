@@ -29,6 +29,8 @@ interface SearchProduct {
     imageUrl: string | null;
     categoryId?: string;
     barcode?: string | null;
+    unitValue?: number | null;
+    unitType?: string | null;
 }
 
 interface SearchBarProps {
@@ -37,7 +39,29 @@ interface SearchBarProps {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   SMART FUZZY ENGINE — Barcode priority + pure fuzzy match
+   UNIT SYNONYMS — Mapeo de lenguaje natural a unit_type
+   ───────────────────────────────────────────────────────────── */
+
+const UNIT_SYNONYMS: Record<string, string> = {
+    // Litros
+    litro: "L", litros: "L", lt: "L", lts: "L",
+    // Mililitros
+    mililitro: "ml", mililitros: "ml",
+    // Kilogramos
+    kilo: "kg", kilos: "kg", kilogramo: "kg", kilogramos: "kg",
+    // Gramos
+    gramo: "g", gramos: "g",
+    // Onzas
+    onza: "oz", onzas: "oz",
+    // Unidades
+    unidad: "und", unidades: "und",
+    // Libras
+    libra: "lb", libras: "lb",
+};
+
+/* ─────────────────────────────────────────────────────────────
+   SMART SEARCH ENGINE — Multi-índice con 3 niveles
+   Prioridad: Barcode > Unit-Type Match > Pure Fuzzy
    ───────────────────────────────────────────────────────────── */
 
 /** Normaliza: lowercase + strip acentos */
@@ -58,7 +82,48 @@ function smartSearch(products: SearchProduct[], query: string): SearchProduct[] 
         return [barcodeMatch, ...rest].slice(0, 50);
     }
 
-    // ── 2) PURE FUZZY TOKEN SEARCH ──
+    // ── 2) UNIT-TYPE MATCH (si query contiene sinónimo de unidad) ──
+    const normalizedQuery = normalize(raw);
+    const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
+
+    // Check if any token is a unit synonym
+    let detectedUnitType: string | null = null;
+    const nameTokens: string[] = [];
+
+    for (const token of tokens) {
+        if (UNIT_SYNONYMS[token]) {
+            detectedUnitType = UNIT_SYNONYMS[token];
+        } else {
+            nameTokens.push(token);
+        }
+    }
+
+    if (detectedUnitType) {
+        // Filter by unit_type first, then fuzzy on remaining name tokens
+        const unitFiltered = products.filter(p => p.unitType === detectedUnitType);
+
+        let results: SearchProduct[];
+        if (nameTokens.length > 0) {
+            // Further filter by name tokens
+            results = unitFiltered
+                .filter(p => {
+                    const haystack = normalize(p.name);
+                    return nameTokens.every(t => haystack.includes(t));
+                })
+                .sort((a, b) => a.name.localeCompare(b.name, "es"))
+                .slice(0, 50);
+        } else {
+            // Only unit filter, sort by name
+            results = unitFiltered
+                .sort((a, b) => a.name.localeCompare(b.name, "es"))
+                .slice(0, 50);
+        }
+
+        if (results.length > 0) return results;
+        // Fallthrough to pure fuzzy if unit-type match yields nothing
+    }
+
+    // ── 3) PURE FUZZY TOKEN SEARCH (fallback) ──
     return fuzzyTokenSearch(products, raw);
 }
 
@@ -191,7 +256,7 @@ export function SearchBar({ products = [], onActiveChange }: SearchBarProps) {
 
                     {/* ── Results list (full remaining height) ── */}
                     <div
-                        className="relative z-10 flex-1 overflow-y-auto px-4 pb-6"
+                        className="relative z-10 flex-1 overflow-y-auto px-4 pb-32"
                         style={{ scrollbarWidth: "thin" }}
                     >
                         {query.trim().length > 0 ? (

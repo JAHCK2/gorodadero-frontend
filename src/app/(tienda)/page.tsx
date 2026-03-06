@@ -38,6 +38,8 @@ export default async function HomePage() {
         discountPercentage: p.discountpercentage ? Number(p.discountpercentage) : (p.discountPercentage ? Number(p.discountPercentage) : null),
         categoryId: p.category_id,
         isActive: p.is_active,
+        unitValue: p.unit_value ? Number(p.unit_value) : null,
+        unitType: p.unit_type || null,
         createdAt: p.created_at,
         updatedAt: p.updated_at
     }));
