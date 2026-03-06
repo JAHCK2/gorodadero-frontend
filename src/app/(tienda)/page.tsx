@@ -13,7 +13,7 @@ export default async function HomePage() {
 
     // Fetch all categories and all products in parallel
     const [categoriesRes, productsRes] = await Promise.all([
-        supabase.from("categories").select("*").order("sort_order", { ascending: true }),
+        supabase.from("categories").select("*").eq("is_active", true).order("sort_order", { ascending: true }),
         supabase.from("products").select("*").order("name", { ascending: true }).limit(3000)
     ]);
 
