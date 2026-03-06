@@ -181,56 +181,14 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
         [macroCategories]
     );
 
-    /* ── Promotional Banner Definitions ── */
+    /* ── Promotional Poster Definitions ── */
     const PROMO_BANNERS = useMemo(() => [
-        {
-            slug: "cervezas",
-            label: "Cervezas",
-            subtitle: "Águila · Poker · Heineken",
-            emoji: "🍺",
-            gradient: "from-amber-600/80 via-yellow-700/70 to-amber-900/90",
-            border: "border-amber-400/30",
-        },
-        {
-            slug: "aguas",
-            label: "Aguas",
-            subtitle: "600ml · 5L · Coco · Colágeno",
-            emoji: "💧",
-            gradient: "from-sky-400/80 via-cyan-500/70 to-blue-700/90",
-            border: "border-sky-300/30",
-        },
-        {
-            slug: "leche-natural",
-            label: "Lácteos",
-            subtitle: "Yogurt · Avena · Leche · Quesos",
-            emoji: "🥛",
-            gradient: "from-blue-100/80 via-indigo-200/60 to-purple-300/70",
-            border: "border-blue-200/40",
-        },
-        {
-            slug: "gaseosas-y-maltas",
-            label: "Gaseosas",
-            subtitle: "Coca Cola · Pepsi · Postobón",
-            emoji: "🥤",
-            gradient: "from-red-600/80 via-rose-700/70 to-red-900/90",
-            border: "border-red-400/30",
-        },
-        {
-            slug: "snacks-salados",
-            label: "Snacks",
-            subtitle: "Papas · Doritos · De Todito",
-            emoji: "🍿",
-            gradient: "from-orange-500/80 via-amber-500/70 to-orange-700/90",
-            border: "border-orange-400/30",
-        },
-        {
-            slug: "gomitas-y-caramelos",
-            label: "Dulces",
-            subtitle: "Gomitas · Caramelos · Chicles",
-            emoji: "🍬",
-            gradient: "from-pink-500/80 via-fuchsia-500/70 to-purple-700/90",
-            border: "border-pink-400/30",
-        },
+        { slug: "cervezas", label: "Cervezas", image: "/images/banners/cervezas.png" },
+        { slug: "gaseosas-y-maltas", label: "Gaseosas", image: "/images/banners/gaseosas.png" },
+        { slug: "aguas", label: "Aguas", image: "/images/banners/aguas.png" },
+        { slug: "snacks-salados", label: "Snacks", image: "/images/banners/snacks.png" },
+        { slug: "licores", label: "Licores", image: "/images/banners/licores.png" },
+        { slug: "leche-natural", label: "Lácteos", image: "/images/banners/lacteos.png" },
     ], []);
 
     // Determine active tab for BottomNav
@@ -349,13 +307,13 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                     ═══════════════════════════════════════════════════════ */}
                 {navState === "home" && (
                     <>
-                        {/* ─── BANNERS PROMOCIONALES — 6 Quick-Links ─── */}
+                        {/* ─── LO MÁS PEDIDO — 6 Pósters con imágenes reales ─── */}
                         <section className="px-4 pt-3 pb-2">
                             <div
-                                className="rounded-3xl p-5 bg-[#3fbfbf]/30 backdrop-blur-2xl border border-white/20"
+                                className="rounded-3xl p-4 bg-[#3fbfbf]/30 backdrop-blur-2xl border border-white/20"
                                 style={{ boxShadow: "inset 4px 4px 12px rgba(255,255,255,0.15), inset -4px -4px 12px rgba(0,0,0,0.15), 0 8px 32px rgba(0,0,0,0.10)" }}
                             >
-                                <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center justify-between mb-3">
                                     <h2 className="text-[16px] font-black text-white tracking-tight drop-shadow-sm">
                                         Lo más pedido
                                     </h2>
@@ -368,40 +326,28 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                                     </button>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-3 gap-2.5">
                                     {PROMO_BANNERS.map((banner) => (
                                         <button
                                             key={banner.slug}
                                             onClick={() => handleQuickLink(banner.slug)}
-                                            className="group relative overflow-hidden rounded-2xl text-left transition-all duration-200 active:scale-[0.97]"
+                                            className="group flex flex-col items-center transition-transform duration-200 active:scale-[0.95]"
                                         >
-                                            {/* Banner background gradient */}
                                             <div
-                                                className={`relative h-28 rounded-2xl bg-gradient-to-br ${banner.gradient} ${banner.border} border overflow-hidden`}
-                                                style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.15)" }}
+                                                className="relative w-full aspect-square rounded-2xl overflow-hidden bg-white/90 border border-white/30 mb-1.5"
+                                                style={{ boxShadow: "0 4px 16px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.5)" }}
                                             >
-                                                {/* Large emoji as visual */}
-                                                <div className="absolute -right-2 -bottom-3 text-[72px] opacity-30 group-hover:opacity-40 group-hover:scale-110 transition-all duration-500 select-none">
-                                                    {banner.emoji}
-                                                </div>
-                                                {/* Shimmer overlay */}
-                                                <div className="absolute inset-0 bg-gradient-to-tr from-white/10 via-transparent to-white/5" />
-
-                                                {/* Content */}
-                                                <div className="relative z-10 p-3.5 flex flex-col justify-between h-full">
-                                                    <div>
-                                                        <h3 className="text-[15px] font-black text-white leading-tight drop-shadow-md">
-                                                            {banner.label}
-                                                        </h3>
-                                                        <p className="text-[10px] font-semibold text-white/70 mt-0.5 leading-tight">
-                                                            {banner.subtitle}
-                                                        </p>
-                                                    </div>
-                                                    <div className="flex items-center gap-1">
-                                                        <span className="text-[10px] font-bold text-white/80">Ver →</span>
-                                                    </div>
-                                                </div>
+                                                <Image
+                                                    src={banner.image}
+                                                    alt={banner.label}
+                                                    fill
+                                                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                                                    sizes="(max-width: 448px) 33vw, 140px"
+                                                />
                                             </div>
+                                            <span className="text-[12px] font-bold text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.4)]">
+                                                {banner.label}
+                                            </span>
                                         </button>
                                     ))}
                                 </div>
