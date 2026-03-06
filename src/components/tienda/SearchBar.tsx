@@ -36,6 +36,8 @@ interface SearchProduct {
 interface SearchBarProps {
     products?: SearchProduct[];
     onActiveChange?: (active: boolean) => void;
+    /** When true, renders as a small icon button instead of the full inline bar */
+    compact?: boolean;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -145,7 +147,7 @@ function fuzzyTokenSearch(products: SearchProduct[], raw: string): SearchProduct
    COMPONENTE PRINCIPAL
    ═════════════════════════════════════════════════════════════ */
 
-export function SearchBar({ products = [], onActiveChange }: SearchBarProps) {
+export function SearchBar({ products = [], onActiveChange, compact = false }: SearchBarProps) {
     const [query, setQuery] = useState("");
     const [isActive, setIsActive] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -329,47 +331,63 @@ export function SearchBar({ products = [], onActiveChange }: SearchBarProps) {
             )}
 
             {/* ───────────────────────────────────────────
-                BARRA INLINE (sticky glass header)
+                BARRA INLINE — compact mode (icon only) or full bar
                 Solo visible cuando NO está activo el overlay
                 ─────────────────────────────────────────── */}
-            <div
-                className="sticky top-0 z-[60] px-4"
-                style={{ paddingTop: "max(8px, env(safe-area-inset-top))" }}
-            >
-                <div
-                    className="relative flex items-center h-[50px] rounded-2xl bg-white/15 backdrop-blur-xl border border-white/25 cursor-text transition-all duration-300 hover:bg-white/20 hover:border-white/35"
-                    style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.2)" }}
+            {compact ? (
+                /* Compact mode: just a search icon button for headers */
+                <button
                     onClick={() => {
                         setIsActive(true);
                         onActiveChange?.(true);
-                        // Small delay to ensure overlay is mounted before focus
                         setTimeout(() => inputRef.current?.focus(), 100);
                     }}
+                    className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-gray-100 transition-colors"
                 >
-                    <div className="absolute left-3.5 flex items-center justify-center w-8 h-8 rounded-xl bg-white/15 backdrop-blur-sm">
-                        <Search className="w-4 h-4 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
+                    <Search className="w-5 h-5 text-gray-800" />
+                </button>
+            ) : (
+                /* Full inline glassmorphism bar */
+                <div
+                    className="sticky top-0 z-[60] px-4"
+                    style={{ paddingTop: "max(8px, env(safe-area-inset-top))" }}
+                >
+                    <div
+                        className="relative flex items-center h-[50px] rounded-2xl bg-white/15 backdrop-blur-xl border border-white/25 cursor-text transition-all duration-300 hover:bg-white/20 hover:border-white/35"
+                        style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.2)" }}
+                        onClick={() => {
+                            setIsActive(true);
+                            onActiveChange?.(true);
+                            setTimeout(() => inputRef.current?.focus(), 100);
+                        }}
+                    >
+                        <div className="absolute left-3.5 flex items-center justify-center w-8 h-8 rounded-xl bg-white/15 backdrop-blur-sm">
+                            <Search className="w-4 h-4 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
+                        </div>
+                        <span className="pl-14 text-sm font-bold text-white/70 drop-shadow-[0_1px_2px_rgba(0,0,0,0.15)]">
+                            ¿Qué necesitas hoy?
+                        </span>
                     </div>
-                    <span className="pl-14 text-sm font-bold text-white/70 drop-shadow-[0_1px_2px_rgba(0,0,0,0.15)]">
-                        ¿Qué necesitas hoy?
-                    </span>
                 </div>
-            </div>
+            )}
 
-            {/* Delivery Chips — flujo normal, NO sticky */}
-            <div className="flex items-center justify-center gap-2 px-5 pt-3 pb-4">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.15] backdrop-blur-md border border-white/25">
-                    <Truck className="w-3 h-3 text-[#fbbf24]" />
-                    <span className="text-[10px] font-bold text-white">24/7</span>
+            {/* Delivery Chips — only in full mode (Home screen) */}
+            {!compact && (
+                <div className="flex items-center justify-center gap-2 px-5 pt-3 pb-4">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.15] backdrop-blur-md border border-white/25">
+                        <Truck className="w-3 h-3 text-[#fbbf24]" />
+                        <span className="text-[10px] font-bold text-white">24/7</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.15] backdrop-blur-md border border-white/25">
+                        <svg className="w-3 h-3 text-[#5eead4]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
+                        <span className="text-[10px] font-bold text-white">15 min</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.15] backdrop-blur-md border border-white/25">
+                        <svg className="w-3 h-3 text-[#f87171]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+                        <span className="text-[10px] font-bold text-white">Seguro</span>
+                    </div>
                 </div>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.15] backdrop-blur-md border border-white/25">
-                    <svg className="w-3 h-3 text-[#5eead4]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
-                    <span className="text-[10px] font-bold text-white">15 min</span>
-                </div>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.15] backdrop-blur-md border border-white/25">
-                    <svg className="w-3 h-3 text-[#f87171]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
-                    <span className="text-[10px] font-bold text-white">Seguro</span>
-                </div>
-            </div>
+            )}
 
             {/* ── Animations ── */}
             <style>{`

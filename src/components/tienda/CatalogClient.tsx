@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { ChevronLeft, Search, MapPin, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import Image from "next/image";
 import { GoLogoFull } from "./GoLogoFull";
 import { Sidebar } from "./Sidebar";
@@ -35,24 +35,30 @@ interface CatalogClientProps {
 }
 
 /* ========================================================================
-   MAIN COMPONENT
+   STATE MACHINE:
+   ──────────────────────────────────────────────────────────────
+   navState = "home"        → Home Screen (glassmorphism hero)
+   navState = "masterView"  → Vista Maestra (grid of all macros)
+   navState = "deepView"    → Deep View (sidebar + products)
+   ──────────────────────────────────────────────────────────────
+   All states share: SearchBar (top) + BottomNav (bottom)
    ======================================================================== */
 
+type NavState = "home" | "masterView" | "deepView";
+
 export default function CatalogClient({ macroCategories, subcategories, initialProducts }: CatalogClientProps) {
-    // STATE MACHINE:
-    // activeMacroId = null   → STATE 0: Home Screen (glassmorphism)
-    // activeMacroId = "xxx"  → STATE 1: Vitrina (sidebar + carousels)
-    // deepViewSubId = "xxx"  → STATE 2: Deep view (full grid)
+    const [navState, setNavState] = useState<NavState>("home");
     const [activeMacroId, setActiveMacroId] = useState<string | null>(null);
     const [activeSubId, setActiveSubId] = useState<string | null>(null);
     const [deepViewSubId, setDeepViewSubId] = useState<string | null>(null);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [isScrollSpy, setIsScrollSpy] = useState(true);
-    const cartItemCount = useCartStore((s) => s.getItemCount());
     const [isSearchActive, setIsSearchActive] = useState(false);
+    const cartItemCount = useCartStore((s) => s.getItemCount());
 
     const productAreaRef = useRef<HTMLDivElement>(null);
     const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+    const contentRef = useRef<HTMLDivElement>(null);
 
     const activeMacro = macroCategories.find(m => m.id === activeMacroId);
 
@@ -68,7 +74,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
 
     // ScrollSpy
     useEffect(() => {
-        if (!isScrollSpy || deepViewSubId || !activeMacroId) return;
+        if (!isScrollSpy || deepViewSubId || navState !== "deepView") return;
         const container = productAreaRef.current;
         if (!container) return;
         const observer = new IntersectionObserver(
@@ -77,48 +83,69 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
         );
         sectionRefs.current.forEach((el) => { if (el) observer.observe(el); });
         return () => observer.disconnect();
-    }, [activeMacroId, activeSubcategories.length, isScrollSpy, deepViewSubId]);
+    }, [navState, activeMacroId, activeSubcategories.length, isScrollSpy, deepViewSubId]);
 
     /* ── HISTORY API — Botón "Atrás" de Android ──
-       Intercepta popstate para navegar por la state machine
-       en vez de salir de la página. Cada transición de estado
-       hace pushState; popstate recorre en reversa. */
+       Intercepta popstate para navegar la state machine
+       en vez de salir de la página. */
     useEffect(() => {
         const handlePopState = () => {
-            // Prioridad: modal > deep view > vitrina > landing
+            // Prioridad: modal > deep sub view > deep view > master view > home
             if (selectedProduct) {
                 setSelectedProduct(null);
             } else if (deepViewSubId) {
                 setDeepViewSubId(null);
                 productAreaRef.current?.scrollTo({ top: 0 });
-            } else if (activeMacroId) {
+            } else if (navState === "deepView") {
+                setNavState("masterView");
                 setActiveMacroId(null);
-                setDeepViewSubId(null);
                 setActiveSubId(null);
+            } else if (navState === "masterView") {
+                setNavState("home");
             }
-            // Si estamos en landing (STATE 0), dejamos que el browser navegue normalmente
+            // Si estamos en home (STATE 0), dejamos que el browser navegue normalmente
         };
         window.addEventListener("popstate", handlePopState);
         return () => window.removeEventListener("popstate", handlePopState);
-    }, [selectedProduct, deepViewSubId, activeMacroId]);
+    }, [selectedProduct, deepViewSubId, navState]);
+
+    /* ── Navigation Handlers ── */
+    const handleGoToMasterView = useCallback(() => {
+        window.history.pushState({ state: "masterView" }, "");
+        setNavState("masterView");
+        contentRef.current?.scrollTo({ top: 0 });
+    }, []);
 
     const handleMacroSelect = useCallback((macroId: string) => {
-        window.history.pushState({ state: "vitrina" }, "");
+        window.history.pushState({ state: "deepView" }, "");
+        setNavState("deepView");
         setActiveMacroId(macroId);
         setDeepViewSubId(null);
     }, []);
+
     const handleSeeMore = useCallback((subId: string) => {
-        window.history.pushState({ state: "deepView" }, "");
+        window.history.pushState({ state: "deepSubView" }, "");
         setDeepViewSubId(subId);
         setActiveSubId(subId);
         productAreaRef.current?.scrollTo({ top: 0 });
     }, []);
+
     const handleBackToVitrina = useCallback(() => { window.history.back(); }, []);
-    const handleBackToLanding = useCallback(() => { window.history.back(); }, []);
+    const handleBackToMasterView = useCallback(() => { window.history.back(); }, []);
+    const handleBackToHome = useCallback(() => {
+        setNavState("home");
+        setActiveMacroId(null);
+        setDeepViewSubId(null);
+        setActiveSubId(null);
+        // Pop history to match
+        window.history.back();
+    }, []);
+
     const handleOpenProduct = useCallback((product: Product) => {
         window.history.pushState({ state: "productModal" }, "");
         setSelectedProduct(product);
     }, []);
+
     const handleSubSelect = useCallback((subId: string) => {
         if (deepViewSubId) { handleSeeMore(subId); return; }
         setActiveSubId(subId); setIsScrollSpy(false);
@@ -126,348 +153,411 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
         if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
         setTimeout(() => setIsScrollSpy(true), 800);
     }, [deepViewSubId]);
-    const setSectionRef = useCallback((id: string, el: HTMLDivElement | null) => { if (el) sectionRefs.current.set(id, el); else sectionRefs.current.delete(id); }, []);
 
-    // Sorted macro-categories for HOME display
+    const setSectionRef = useCallback((id: string, el: HTMLDivElement | null) => {
+        if (el) sectionRefs.current.set(id, el);
+        else sectionRefs.current.delete(id);
+    }, []);
+
     const sortedMacros = useMemo(
         () => [...macroCategories].sort((a, b) => a.sortOrder - b.sortOrder),
         [macroCategories]
     );
-    const topMacros = sortedMacros.slice(0, 2);
 
+    // Determine active tab for BottomNav
+    const activeTab = navState === "home" ? "inicio" : "pasillos";
 
     /* ╔════════════════════════════════════════════════════════════════════╗
-       ║ STATE 0: HOME SCREEN — Glassmorphism over Rodadero              ║
+       ║ UNIFIED SHELL: SearchBar (top) + Content (middle) + BottomNav   ║
        ╚════════════════════════════════════════════════════════════════════╝ */
-    if (activeMacroId === null) {
-        return (
-            <main className="min-h-screen relative">
-                {/* ═══════════════════════════════════════════════════════
-                    FULL-SCREEN BACKGROUND — Aislado en capa GPU propia.
-                    Usa 100lvh (large viewport) para ignorar la barra
-                    de Chrome que aparece/desaparece en Android.
-                    will-change + translateZ(0) = compositing GPU.
-                    ═══════════════════════════════════════════════════════ */}
-                <div
-                    className="fixed top-0 left-0 w-full z-0 pointer-events-none"
-                    style={{
-                        height: "100lvh",
-                        willChange: "transform",
-                        WebkitTransform: "translateZ(0)",
-                        transform: "translateZ(0)",
-                    }}
-                >
-                    <Image
-                        src="/images/rodadero-fullscreen.webp"
-                        alt=""
-                        fill
-                        className="object-cover"
-                        priority
-                        quality={75}
-                        sizes="100vw"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/40" />
-                </div>
+    return (
+        <main className="min-h-screen relative">
 
-                {/* ═══════════════════════════════════════════════════════
-                    FLOATING CONTENT — Over the background
-                    ═══════════════════════════════════════════════════════ */}
-                <div className="relative z-10 max-w-md mx-auto pb-24">
+            {/* ═══════════════════════════════════════════════════════
+                FULL-SCREEN BACKGROUND — Always present, fades per state
+                ═══════════════════════════════════════════════════════ */}
+            <div
+                className={`fixed top-0 left-0 w-full z-0 pointer-events-none transition-opacity duration-500 ${navState === "home" ? "opacity-100" : "opacity-0"}`}
+                style={{
+                    height: "100lvh",
+                    willChange: "transform",
+                    WebkitTransform: "translateZ(0)",
+                    transform: "translateZ(0)",
+                }}
+            >
+                <Image
+                    src="/images/rodadero-fullscreen.webp"
+                    alt=""
+                    fill
+                    className="object-cover"
+                    priority
+                    quality={75}
+                    sizes="100vw"
+                />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/40" />
+            </div>
 
-                    {/* ─── HERO SECTION ─── */}
-                    <section className="px-5 pt-5 pb-2">
-                        {/* Top bar: location + online indicator */}
-                        <div className="flex items-center justify-between mb-6">
-                            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-lg border border-white/20 hover:bg-white/25 transition-all duration-300 active:scale-95">
-                                <MapPin className="w-3 h-3 text-[#5eead4]" />
-                                <span className="text-[11px] font-bold text-white/90">
-                                    El Rodadero, Santa Marta
-                                </span>
-                                <ChevronRight className="w-3 h-3 text-white/40 rotate-90" />
-                            </button>
-                            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-[#10b981]/20 backdrop-blur-sm border border-[#10b981]/25">
-                                <div className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse" />
-                                <span className="text-[10px] font-bold text-[#6ee7b7]">Abierto ahora</span>
-                            </div>
-                        </div>
+            {/* ═══════════════════════════════════════════════════════
+                SCROLLABLE CONTENT — max-w-md centered
+                ═══════════════════════════════════════════════════════ */}
+            <div
+                ref={contentRef}
+                className={`relative z-10 max-w-md mx-auto pb-24 ${navState !== "home" ? "bg-white min-h-screen" : ""}`}
+            >
 
-                        {/* Centered logo */}
-                        <div className="flex flex-col items-center text-center mb-5">
-                            <div className="relative">
-                                <div className="absolute inset-0 scale-[1.8] bg-white/10 rounded-full blur-[40px]" />
-                                <GoLogoFull className="relative w-48 h-auto drop-shadow-[0_6px_32px_rgba(0,0,0,0.35)]" />
-                            </div>
-                        </div>
-
-                        {/* Slogan with wave icons */}
-                        <div className="flex items-center justify-center gap-3 mb-3">
-                            <svg className="w-4 h-4 text-[#5eead4]/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /></svg>
-                            <p className="text-[11px] font-extrabold text-white tracking-[0.25em] uppercase drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
-                                Tu super en minutos
-                            </p>
-                            <svg className="w-4 h-4 text-[#5eead4]/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /></svg>
-                        </div>
-                    </section>
-
-                    {/* Search bar + delivery chips — connected to real products */}
-                    <SearchBar products={initialProducts} onActiveChange={setIsSearchActive} />
-
-                    {/* ─── LO MÁS PEDIDO — Top 2 Macro-categorías + Ver todo ─── */}
-                    <section className="px-4 pt-3 pb-2">
-                        <div
-                            className="rounded-3xl p-5 bg-[#3fbfbf]/30 backdrop-blur-2xl border border-white/20"
-                            style={{ boxShadow: "inset 4px 4px 12px rgba(255,255,255,0.15), inset -4px -4px 12px rgba(0,0,0,0.15), 0 8px 32px rgba(0,0,0,0.10)" }}
-                        >
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-[16px] font-black text-white tracking-tight drop-shadow-sm">
-                                    Lo más pedido
-                                </h2>
-                                <button
-                                    onClick={() => handleMacroSelect(sortedMacros[0]?.id || "")}
-                                    className="flex items-center gap-0.5 text-[12px] font-bold text-white/70"
-                                >
-                                    Ver todo
-                                    <ChevronRight className="w-3.5 h-3.5" />
+                {/* ── GLOBAL SEARCH BAR — always visible ── */}
+                {navState === "home" ? (
+                    /* Home: hero section + search bar over background image */
+                    <>
+                        <section className="px-5 pt-5 pb-2">
+                            {/* Top bar: location + online indicator */}
+                            <div className="flex items-center justify-between mb-6">
+                                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-lg border border-white/20 hover:bg-white/25 transition-all duration-300 active:scale-95">
+                                    <MapPin className="w-3 h-3 text-[#5eead4]" />
+                                    <span className="text-[11px] font-bold text-white/90">
+                                        El Rodadero, Santa Marta
+                                    </span>
+                                    <ChevronRight className="w-3 h-3 text-white/40 rotate-90" />
                                 </button>
+                                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-[#10b981]/20 backdrop-blur-sm border border-[#10b981]/25">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse" />
+                                    <span className="text-[10px] font-bold text-[#6ee7b7]">Abierto ahora</span>
+                                </div>
                             </div>
-                            <div className="grid grid-cols-3 gap-3">
-                                {topMacros.map((macro) => (
+
+                            {/* Centered logo */}
+                            <div className="flex flex-col items-center text-center mb-5">
+                                <div className="relative">
+                                    <div className="absolute inset-0 scale-[1.8] bg-white/10 rounded-full blur-[40px]" />
+                                    <GoLogoFull className="relative w-48 h-auto drop-shadow-[0_6px_32px_rgba(0,0,0,0.35)]" />
+                                </div>
+                            </div>
+
+                            {/* Slogan with wave icons */}
+                            <div className="flex items-center justify-center gap-3 mb-3">
+                                <svg className="w-4 h-4 text-[#5eead4]/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /></svg>
+                                <p className="text-[11px] font-extrabold text-white tracking-[0.25em] uppercase drop-shadow-[0_1px_4px_rgba(0,0,0,0.3)]">
+                                    Tu super en minutos
+                                </p>
+                                <svg className="w-4 h-4 text-[#5eead4]/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /></svg>
+                            </div>
+                        </section>
+
+                        <SearchBar products={initialProducts} onActiveChange={setIsSearchActive} />
+                    </>
+                ) : (
+                    /* Master View / Deep View: compact header with back + search */
+                    <header className="sticky top-0 z-[60] bg-white/90 backdrop-blur-xl border-b border-gray-100/80 flex-shrink-0"
+                        style={{ boxShadow: "0 1px 8px rgba(0,0,0,0.04)" }}
+                    >
+                        <div className="flex items-center justify-between px-4 py-3">
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={navState === "deepView"
+                                        ? (deepViewSubId ? handleBackToVitrina : handleBackToMasterView)
+                                        : handleBackToHome}
+                                    className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition-colors active:scale-90"
+                                >
+                                    <ChevronLeft className="w-6 h-6 text-gray-800" />
+                                </button>
+                                <h1 className="text-[17px] font-bold text-gray-900 truncate max-w-[220px]">
+                                    {navState === "masterView"
+                                        ? "Todos los pasillos"
+                                        : deepViewSubId
+                                            ? activeSubcategories.find(s => s.id === deepViewSubId)?.name || "Productos"
+                                            : activeMacro?.name || "Catálogo"
+                                    }
+                                </h1>
+                            </div>
+                            <SearchBar products={initialProducts} onActiveChange={setIsSearchActive} compact />
+                        </div>
+                    </header>
+                )}
+
+
+                {/* ═══════════════════════════════════════════════════════
+                    STATE 0: HOME — Cards over Rodadero background
+                    ═══════════════════════════════════════════════════════ */}
+                {navState === "home" && (
+                    <>
+                        {/* ─── LO MÁS PEDIDO — 2 macros + Ver todo ─── */}
+                        <section className="px-4 pt-3 pb-2">
+                            <div
+                                className="rounded-3xl p-5 bg-[#3fbfbf]/30 backdrop-blur-2xl border border-white/20"
+                                style={{ boxShadow: "inset 4px 4px 12px rgba(255,255,255,0.15), inset -4px -4px 12px rgba(0,0,0,0.15), 0 8px 32px rgba(0,0,0,0.10)" }}
+                            >
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-[16px] font-black text-white tracking-tight drop-shadow-sm">
+                                        Lo más pedido
+                                    </h2>
                                     <button
-                                        key={macro.id}
-                                        onClick={() => handleMacroSelect(macro.id)}
+                                        onClick={handleGoToMasterView}
+                                        className="flex items-center gap-0.5 text-[12px] font-bold text-white/70"
+                                    >
+                                        Ver todo
+                                        <ChevronRight className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {sortedMacros.slice(0, 2).map((macro) => (
+                                        <button
+                                            key={macro.id}
+                                            onClick={() => handleMacroSelect(macro.id)}
+                                            className="group flex flex-col items-center"
+                                        >
+                                            <div
+                                                className="relative w-full aspect-square rounded-2xl overflow-hidden mb-2 transition-all duration-150 active:shadow-[inset_3px_3px_8px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.15)] bg-white/10 border border-white/20 flex items-center justify-center"
+                                                style={{ boxShadow: "6px 6px 16px rgba(0,0,0,0.25), -4px -4px 12px rgba(255,255,255,0.15)" }}
+                                            >
+                                                <span className="text-4xl group-hover:scale-110 transition-transform duration-300">
+                                                    {macro.icon || "📦"}
+                                                </span>
+                                                <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-black/15 rounded-2xl" />
+                                            </div>
+                                            <span className="text-[11px] font-bold text-white/90 text-center leading-tight drop-shadow-sm">
+                                                {macro.name}
+                                            </span>
+                                        </button>
+                                    ))}
+                                    {/* ── "Ver todo" Ícono premium ── */}
+                                    <button
+                                        onClick={handleGoToMasterView}
                                         className="group flex flex-col items-center"
                                     >
                                         <div
-                                            className="relative w-full aspect-square rounded-2xl overflow-hidden mb-2 transition-all duration-150 active:shadow-[inset_3px_3px_8px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.15)] bg-white/10 border border-white/20 flex items-center justify-center"
+                                            className="relative w-full aspect-square rounded-2xl overflow-hidden mb-2 transition-all duration-150 active:shadow-[inset_3px_3px_8px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.15)] bg-gradient-to-br from-[#10b981]/30 to-[#0ea5e9]/30 border border-[#5eead4]/40 flex items-center justify-center"
                                             style={{ boxShadow: "6px 6px 16px rgba(0,0,0,0.25), -4px -4px 12px rgba(255,255,255,0.15)" }}
                                         >
-                                            <span className="text-4xl group-hover:scale-110 transition-transform duration-300">
-                                                {macro.icon || "📦"}
-                                            </span>
-                                            <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-black/15 rounded-2xl" />
+                                            <div className="flex flex-col items-center gap-0.5">
+                                                <svg className="w-7 h-7 text-[#5eead4] group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <rect x="3" y="3" width="7" height="7" rx="1" />
+                                                    <rect x="14" y="3" width="7" height="7" rx="1" />
+                                                    <rect x="3" y="14" width="7" height="7" rx="1" />
+                                                    <rect x="14" y="14" width="7" height="7" rx="1" />
+                                                </svg>
+                                            </div>
+                                            <div className="absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-black/10 rounded-2xl" />
                                         </div>
-                                        <span className="text-[11px] font-bold text-white/90 text-center leading-tight drop-shadow-sm">
-                                            {macro.name}
+                                        <span className="text-[11px] font-bold text-[#5eead4] text-center leading-tight drop-shadow-sm">
+                                            Ver todo
                                         </span>
                                     </button>
-                                ))}
-                                {/* ── "Ver todo" Ícono premium ── */}
-                                <button
-                                    onClick={() => handleMacroSelect(sortedMacros[0]?.id || "")}
-                                    className="group flex flex-col items-center"
-                                >
-                                    <div
-                                        className="relative w-full aspect-square rounded-2xl overflow-hidden mb-2 transition-all duration-150 active:shadow-[inset_3px_3px_8px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.15)] bg-gradient-to-br from-[#10b981]/30 to-[#0ea5e9]/30 border border-[#5eead4]/40 flex items-center justify-center"
-                                        style={{ boxShadow: "6px 6px 16px rgba(0,0,0,0.25), -4px -4px 12px rgba(255,255,255,0.15)" }}
-                                    >
-                                        <div className="flex flex-col items-center gap-0.5">
-                                            <svg className="w-7 h-7 text-[#5eead4] group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                <rect x="3" y="3" width="7" height="7" rx="1" />
-                                                <rect x="14" y="3" width="7" height="7" rx="1" />
-                                                <rect x="3" y="14" width="7" height="7" rx="1" />
-                                                <rect x="14" y="14" width="7" height="7" rx="1" />
-                                            </svg>
-                                        </div>
-                                        <div className="absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-black/10 rounded-2xl" />
-                                    </div>
-                                    <span className="text-[11px] font-bold text-[#5eead4] text-center leading-tight drop-shadow-sm">
-                                        Ver todo
-                                    </span>
-                                </button>
+                                </div>
                             </div>
-                        </div>
-                    </section>
+                        </section>
 
-                    {/* ─── TODOS LOS PASILLOS — Neumórfico unificado ─── */}
-                    <section className="pt-4 pb-4">
-                        <div
-                            className="mx-4 rounded-3xl p-5 bg-[#3fbfbf]/30 backdrop-blur-2xl border border-white/20"
-                            style={{ boxShadow: "inset 4px 4px 12px rgba(255,255,255,0.15), inset -4px -4px 12px rgba(0,0,0,0.15), 0 8px 32px rgba(0,0,0,0.10)" }}
-                        >
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-[16px] font-black text-white tracking-tight drop-shadow-sm">
-                                    Todos los pasillos
-                                </h2>
-                            </div>
+                        {/* ─── TODOS LOS PASILLOS — 2 macros + Ver todo ─── */}
+                        <section className="pt-4 pb-4">
+                            <div
+                                className="mx-4 rounded-3xl p-5 bg-[#3fbfbf]/30 backdrop-blur-2xl border border-white/20"
+                                style={{ boxShadow: "inset 4px 4px 12px rgba(255,255,255,0.15), inset -4px -4px 12px rgba(0,0,0,0.15), 0 8px 32px rgba(0,0,0,0.10)" }}
+                            >
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-[16px] font-black text-white tracking-tight drop-shadow-sm">
+                                        Todos los pasillos
+                                    </h2>
+                                </div>
 
-                            <div className="grid grid-cols-3 gap-3">
-                                {sortedMacros.slice(0, 2).map((macro) => (
+                                <div className="grid grid-cols-3 gap-3">
+                                    {sortedMacros.slice(0, 2).map((macro) => (
+                                        <button
+                                            key={macro.id}
+                                            onClick={() => handleMacroSelect(macro.id)}
+                                            className="group flex-shrink-0 flex flex-col items-center"
+                                        >
+                                            <div
+                                                className="relative w-full aspect-square rounded-2xl overflow-hidden bg-white/10 border border-white/20 mb-2 transition-all duration-300 group-hover:scale-105 active:scale-95 active:shadow-[inset_3px_3px_8px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.15)] flex items-center justify-center"
+                                                style={{ boxShadow: "6px 6px 16px rgba(0,0,0,0.25), -4px -4px 12px rgba(255,255,255,0.15)" }}
+                                            >
+                                                <span className="text-3xl group-hover:scale-110 transition-transform duration-300">
+                                                    {macro.icon || "📦"}
+                                                </span>
+                                            </div>
+                                            <span className="text-[11px] font-bold text-white/90 text-center leading-tight block drop-shadow-sm">
+                                                {macro.name}
+                                            </span>
+                                        </button>
+                                    ))}
+                                    {/* ── "Ver todo" card ── */}
                                     <button
-                                        key={macro.id}
-                                        onClick={() => handleMacroSelect(macro.id)}
+                                        onClick={handleGoToMasterView}
                                         className="group flex-shrink-0 flex flex-col items-center"
                                     >
                                         <div
-                                            className="relative w-full aspect-square rounded-2xl overflow-hidden bg-white/10 border border-white/20 mb-2 transition-all duration-300 group-hover:scale-105 active:scale-95 active:shadow-[inset_3px_3px_8px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.15)] flex items-center justify-center"
+                                            className="relative w-full aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-[#10b981]/30 to-[#0ea5e9]/30 border border-[#5eead4]/40 mb-2 transition-all duration-300 group-hover:scale-105 active:scale-95 flex items-center justify-center"
                                             style={{ boxShadow: "6px 6px 16px rgba(0,0,0,0.25), -4px -4px 12px rgba(255,255,255,0.15)" }}
                                         >
-                                            <span className="text-3xl group-hover:scale-110 transition-transform duration-300">
+                                            <div className="flex flex-col items-center gap-1">
+                                                <svg className="w-6 h-6 text-[#5eead4]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <circle cx="12" cy="12" r="10" />
+                                                    <path d="M12 8v8" />
+                                                    <path d="M8 12h8" />
+                                                </svg>
+                                                <span className="text-[9px] font-black text-[#5eead4]/80 uppercase tracking-wider">Más</span>
+                                            </div>
+                                        </div>
+                                        <span className="text-[11px] font-bold text-[#5eead4] text-center leading-tight block drop-shadow-sm">
+                                            Ver todo
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                        </section>
+                    </>
+                )}
+
+
+                {/* ═══════════════════════════════════════════════════════
+                    STATE 1: VISTA MAESTRA — Grid of all 14 Macros
+                    ═══════════════════════════════════════════════════════ */}
+                {navState === "masterView" && (
+                    <section className="px-4 py-5">
+                        <div className="grid grid-cols-2 gap-3">
+                            {sortedMacros.map((macro) => {
+                                const macroSubCount = subcategories.filter(s => s.parentId === macro.id).length;
+                                const macroProductCount = initialProducts.filter(p => {
+                                    const subIds = subcategories.filter(s => s.parentId === macro.id).map(s => s.id);
+                                    return subIds.includes(p.categoryId);
+                                }).length;
+
+                                return (
+                                    <button
+                                        key={macro.id}
+                                        onClick={() => handleMacroSelect(macro.id)}
+                                        className="group relative bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-100 p-4 text-left transition-all duration-200 active:scale-[0.97] hover:shadow-lg hover:border-gray-200"
+                                        style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}
+                                    >
+                                        {/* Emoji icon */}
+                                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100/50 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                                            <span className="text-3xl">
                                                 {macro.icon || "📦"}
                                             </span>
                                         </div>
-                                        <span className="text-[11px] font-bold text-white/90 text-center leading-tight block drop-shadow-sm">
+
+                                        {/* Name */}
+                                        <h3 className="text-[14px] font-bold text-gray-900 leading-tight mb-1">
                                             {macro.name}
+                                        </h3>
+
+                                        {/* Product count badge */}
+                                        <span className="text-[11px] font-semibold text-gray-400">
+                                            {macroProductCount} productos
                                         </span>
+
+                                        {/* Chevron */}
+                                        <ChevronRight className="absolute top-4 right-3 w-4 h-4 text-gray-300 group-hover:text-emerald-500 transition-colors" />
                                     </button>
-                                ))}
-                                {/* ── "Ver todo" card ── */}
-                                <button
-                                    onClick={() => handleMacroSelect(sortedMacros[0]?.id || "")}
-                                    className="group flex-shrink-0 flex flex-col items-center"
-                                >
-                                    <div
-                                        className="relative w-full aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-[#10b981]/30 to-[#0ea5e9]/30 border border-[#5eead4]/40 mb-2 transition-all duration-300 group-hover:scale-105 active:scale-95 flex items-center justify-center"
-                                        style={{ boxShadow: "6px 6px 16px rgba(0,0,0,0.25), -4px -4px 12px rgba(255,255,255,0.15)" }}
-                                    >
-                                        <div className="flex flex-col items-center gap-1">
-                                            <svg className="w-6 h-6 text-[#5eead4]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                <circle cx="12" cy="12" r="10" />
-                                                <path d="M12 8v8" />
-                                                <path d="M8 12h8" />
-                                            </svg>
-                                            <span className="text-[9px] font-black text-[#5eead4]/80 uppercase tracking-wider">Más</span>
-                                        </div>
-                                    </div>
-                                    <span className="text-[11px] font-bold text-[#5eead4] text-center leading-tight block drop-shadow-sm">
-                                        Ver todo
-                                    </span>
-                                </button>
-                            </div>
+                                );
+                            })}
                         </div>
                     </section>
-
-                </div>
-
-                {/* Product Detail Modal */}
-                {selectedProduct && (
-                    <ProductDetailModal product={selectedProduct} allProducts={initialProducts} onClose={() => window.history.back()} />
                 )}
 
-                {/* Bottom Navigation — hidden during search overlay */}
-                {!isSearchActive && (
-                    <BottomNav
-                        activeTab="inicio"
-                        onInicioClick={() => { }}
-                        onPasillosClick={() => handleMacroSelect(macroCategories[0]?.id || "")}
-                        cartCount={cartItemCount}
-                    />
-                )}
-            </main>
-        );
-    }
 
+                {/* ═══════════════════════════════════════════════════════
+                    STATE 2: DEEP VIEW — Sidebar + Products
+                    ═══════════════════════════════════════════════════════ */}
+                {navState === "deepView" && (
+                    <>
+                        {/* Deep View filter chips */}
+                        {deepViewSubId && (
+                            <div className="flex items-center gap-2 px-4 py-2.5 bg-white border-b border-gray-100 flex-shrink-0">
+                                <button className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-gray-50 border border-gray-200">
+                                    <svg className="w-4 h-4 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 21V14M4 10V3M12 21V12M12 8V3M20 21V16M20 12V3M1 14h6M9 8h6M17 16h6" /></svg>
+                                </button>
+                                <button className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50">
+                                    Precio <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" /></svg>
+                                </button>
+                                <button className="flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50">
+                                    Ofertas
+                                </button>
+                            </div>
+                        )}
 
-    /* ╔════════════════════════════════════════════════════════════════════╗
-       ║ STATE 1 & 2: VITRINA + DEEP VIEW                               ║
-       ╚════════════════════════════════════════════════════════════════════╝ */
-    return (
-        <div className="min-h-screen bg-white pb-20">
-            <div className="max-w-md mx-auto h-[calc(100vh-80px)] overflow-hidden relative flex flex-col">
+                        {/* Split: sidebar + products */}
+                        <div className="flex flex-1 overflow-hidden" style={{ height: "calc(100vh - 140px)" }}>
+                            {!deepViewSubId && (
+                                <Sidebar
+                                    categories={activeSubcategories.map(s => ({ id: s.id, name: s.name, icon: s.icon }))}
+                                    activeCategory={activeSubId || ""}
+                                    onSelect={(id: string) => handleSubSelect(id)}
+                                    useIdForSelection
+                                />
+                            )}
 
-                {/* HEADER */}
-                <header className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100 flex-shrink-0">
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={deepViewSubId ? handleBackToVitrina : handleBackToLanding}
-                            className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition-colors active:scale-90"
-                        >
-                            <ChevronLeft className="w-6 h-6 text-gray-800" />
-                        </button>
-                        <h1 className="text-[17px] font-bold text-gray-900 truncate max-w-[220px]">
-                            {deepViewSubId
-                                ? activeSubcategories.find(s => s.id === deepViewSubId)?.name || "Productos"
-                                : activeMacro?.name || "Catálogo"
-                            }
-                        </h1>
-                    </div>
-                    <button className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-gray-100 transition-colors">
-                        <Search className="w-5 h-5 text-gray-800" />
-                    </button>
-                </header>
-
-                {/* Deep View filter chips */}
-                {deepViewSubId && (
-                    <div className="flex items-center gap-2 px-4 py-2.5 bg-white border-b border-gray-100 flex-shrink-0">
-                        <button className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-gray-50 border border-gray-200">
-                            <svg className="w-4 h-4 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 21V14M4 10V3M12 21V12M12 8V3M20 21V16M20 12V3M1 14h6M9 8h6M17 16h6" /></svg>
-                        </button>
-                        <button className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50">
-                            Precio <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" /></svg>
-                        </button>
-                        <button className="flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50">
-                            Ofertas
-                        </button>
-                    </div>
-                )}
-
-                {/* Split: sidebar + products */}
-                <div className="flex flex-1 overflow-hidden">
-                    {!deepViewSubId && (
-                        <Sidebar
-                            categories={activeSubcategories.map(s => ({ id: s.id, name: s.name, icon: s.icon }))}
-                            activeCategory={activeSubId || ""}
-                            onSelect={(id: string) => handleSubSelect(id)}
-                            useIdForSelection
-                        />
-                    )}
-
-                    <div ref={productAreaRef} className="flex-1 flex flex-col overflow-y-auto bg-white" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
-                        {deepViewSubId === null ? (
-                            <>
-                                {activeSubcategories.map((sub) => {
-                                    const subProducts = initialProducts.filter(p => p.categoryId === sub.id);
-                                    return (
-                                        <SubcategoryCarousel
-                                            key={sub.id}
-                                            ref={(el) => setSectionRef(sub.id, el)}
-                                            subcategoryId={sub.id}
-                                            subcategoryName={sub.name}
-                                            products={subProducts}
-                                            onProductClick={handleOpenProduct}
-                                            onSeeMore={() => handleSeeMore(sub.id)}
-                                        />
-                                    );
-                                })}
-                                {activeSubcategories.length === 0 && (
-                                    <div className="flex-1 flex items-center justify-center py-20">
-                                        <p className="text-sm text-gray-400">No hay subcategorías para &quot;{activeMacro?.name}&quot; todavía.</p>
-                                    </div>
-                                )}
-                                <div className="h-24" />
-                            </>
-                        ) : (
-                            (() => {
-                                const deepProducts = initialProducts.filter(p => p.categoryId === deepViewSubId);
-                                return (
-                                    <div className="grid grid-cols-2 gap-2.5 px-3 py-4 pb-24">
-                                        {deepProducts.length > 0 ? deepProducts.map((product) => (
-                                            <CatalogProductCard key={product.id} product={product} onClick={() => handleOpenProduct(product)} />
-                                        )) : (
-                                            <div className="col-span-2 text-center py-12 text-gray-400">
-                                                <p className="text-sm">No hay productos en esta subcategoría.</p>
+                            <div ref={productAreaRef} className="flex-1 flex flex-col overflow-y-auto bg-white" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+                                {deepViewSubId === null ? (
+                                    <>
+                                        {activeSubcategories.map((sub) => {
+                                            const subProducts = initialProducts.filter(p => p.categoryId === sub.id);
+                                            return (
+                                                <SubcategoryCarousel
+                                                    key={sub.id}
+                                                    ref={(el) => setSectionRef(sub.id, el)}
+                                                    subcategoryId={sub.id}
+                                                    subcategoryName={sub.name}
+                                                    products={subProducts}
+                                                    onProductClick={handleOpenProduct}
+                                                    onSeeMore={() => handleSeeMore(sub.id)}
+                                                />
+                                            );
+                                        })}
+                                        {activeSubcategories.length === 0 && (
+                                            <div className="flex-1 flex items-center justify-center py-20">
+                                                <p className="text-sm text-gray-400">No hay subcategorías para &quot;{activeMacro?.name}&quot; todavía.</p>
                                             </div>
                                         )}
-                                    </div>
-                                );
-                            })()
-                        )}
-                    </div>
-                </div>
+                                        <div className="h-24" />
+                                    </>
+                                ) : (
+                                    (() => {
+                                        const deepProducts = initialProducts.filter(p => p.categoryId === deepViewSubId);
+                                        return (
+                                            <div className="grid grid-cols-2 gap-2.5 px-3 py-4 pb-24">
+                                                {deepProducts.length > 0 ? deepProducts.map((product) => (
+                                                    <CatalogProductCard key={product.id} product={product} onClick={() => handleOpenProduct(product)} />
+                                                )) : (
+                                                    <div className="col-span-2 text-center py-12 text-gray-400">
+                                                        <p className="text-sm">No hay productos en esta subcategoría.</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()
+                                )}
+                            </div>
+                        </div>
 
-                <PasillosFab onClick={handleBackToLanding} />
-
-                {selectedProduct && (
-                    <ProductDetailModal product={selectedProduct} allProducts={initialProducts} onClose={() => window.history.back()} />
+                        <PasillosFab onClick={handleBackToMasterView} />
+                    </>
                 )}
             </div>
 
-            {/* Bottom Navigation */}
-            <BottomNav
-                activeTab="pasillos"
-                onInicioClick={handleBackToLanding}
-                onPasillosClick={() => { }}
-                cartCount={cartItemCount}
-            />
-        </div>
+            {/* ═══════════════════════════════════════════════════════
+                PRODUCT DETAIL MODAL — Above everything
+                ═══════════════════════════════════════════════════════ */}
+            {selectedProduct && (
+                <ProductDetailModal product={selectedProduct} allProducts={initialProducts} onClose={() => window.history.back()} />
+            )}
+
+            {/* ═══════════════════════════════════════════════════════
+                BOTTOM NAVIGATION — Always visible (hidden during search)
+                ═══════════════════════════════════════════════════════ */}
+            {!isSearchActive && (
+                <BottomNav
+                    activeTab={activeTab}
+                    onInicioClick={() => {
+                        if (navState !== "home") {
+                            setNavState("home");
+                            setActiveMacroId(null);
+                            setDeepViewSubId(null);
+                            setActiveSubId(null);
+                        }
+                    }}
+                    onPasillosClick={handleGoToMasterView}
+                    cartCount={cartItemCount}
+                />
+            )}
+        </main>
     );
 }
