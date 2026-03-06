@@ -12,6 +12,7 @@ import { ProductDetailModal } from "./ProductDetailModal";
 import { BottomNav } from "./BottomNav";
 import { SearchBar } from "./SearchBar";
 import { useCartStore } from "@/store/cartStore";
+import type { Product } from "@/types/product";
 
 /* ========================================================================
    TYPES
@@ -30,7 +31,7 @@ interface CategoryItem {
 interface CatalogClientProps {
     macroCategories: CategoryItem[];
     subcategories: CategoryItem[];
-    initialProducts: any[];
+    initialProducts: Product[];
 }
 
 /* ========================================================================
@@ -114,7 +115,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
     }, []);
     const handleBackToVitrina = useCallback(() => { window.history.back(); }, []);
     const handleBackToLanding = useCallback(() => { window.history.back(); }, []);
-    const handleOpenProduct = useCallback((product: any) => {
+    const handleOpenProduct = useCallback((product: Product) => {
         window.history.pushState({ state: "productModal" }, "");
         setSelectedProduct(product);
     }, []);

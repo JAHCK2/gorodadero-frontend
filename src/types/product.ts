@@ -28,6 +28,9 @@ export interface Product {
     stock: number;
     isActive: boolean;
     categoryId: string;
+    barcode: string | null;
+    unitValue: number | null;
+    unitType: string | null;
     createdAt: string;
     updatedAt: string;
     category?: Category;

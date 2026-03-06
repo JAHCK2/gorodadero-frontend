@@ -2,12 +2,13 @@
 
 import { forwardRef } from "react";
 import { CatalogProductCard } from "./CatalogProductCard";
+import type { Product } from "@/types/product";
 
 interface SubcategoryCarouselProps {
     subcategoryName: string;
     subcategoryId: string;
-    products: any[];
-    onProductClick: (product: any) => void;
+    products: Product[];
+    onProductClick: (product: Product) => void;
     onSeeMore?: () => void;
 }
 

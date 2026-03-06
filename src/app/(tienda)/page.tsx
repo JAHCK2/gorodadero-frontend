@@ -17,7 +17,8 @@ export default async function HomePage() {
         supabase.from("products").select("*").order("name", { ascending: true }).limit(3000)
     ]);
 
-    const allCategories = (categoriesRes.data || []).map((c: any) => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const allCategories = (categoriesRes.data || []).map((c: Record<string, any>) => ({
         id: c.id,
         name: c.name,
         slug: c.slug,
@@ -29,15 +30,20 @@ export default async function HomePage() {
         updatedAt: c.updated_at
     }));
 
-    const products = (productsRes.data || []).map((p: any) => ({
-        ...p,
-        imageUrl: p.image_url,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const products = (productsRes.data || []).map((p: Record<string, any>) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description || null,
+        imageUrl: p.image_url || null,
         buyPrice: p.buy_price ? Number(p.buy_price) : 0,
         sellPrice: p.sell_price ? Number(p.sell_price) : 0,
         originalPrice: p.originalprice ? Number(p.originalprice) : (p.originalPrice ? Number(p.originalPrice) : null),
         discountPercentage: p.discountpercentage ? Number(p.discountpercentage) : (p.discountPercentage ? Number(p.discountPercentage) : null),
+        stock: p.stock ?? 0,
         categoryId: p.category_id,
-        isActive: p.is_active,
+        isActive: p.is_active ?? true,
+        barcode: p.barcode || null,
         unitValue: p.unit_value ? Number(p.unit_value) : null,
         unitType: p.unit_type || null,
         createdAt: p.created_at,
@@ -45,8 +51,8 @@ export default async function HomePage() {
     }));
 
     // Separate macro-categories (no parent) vs subcategories (has parent)
-    const macroCategories = allCategories.filter((c: any) => c.parentId === null);
-    const subcategories = allCategories.filter((c: any) => c.parentId !== null);
+    const macroCategories = allCategories.filter((c) => c.parentId === null);
+    const subcategories = allCategories.filter((c) => c.parentId !== null);
 
     return (
         <CatalogClient

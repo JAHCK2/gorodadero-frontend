@@ -44,3 +44,8 @@ next-env.d.ts
 
 # ─── Misc ───
 *.log
+
+# ─── ETL Backups (no subir al repo) ───
+scripts/products_backup_*.json
+scripts/etl_*.log
+scripts/supabase_dump.json

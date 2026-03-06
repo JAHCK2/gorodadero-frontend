@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { GoLogoFull } from "./GoLogoFull";
 import { CartButton } from "./CartButton";
+import type { Product } from "@/types/product";
 
 export function GoWatermark() {
     return (
@@ -13,13 +14,13 @@ export function GoWatermark() {
 }
 
 interface CatalogProductCardProps {
-    product: any;
+    product: Product;
     onClick?: () => void;
 }
 
 export function CatalogProductCard({ product, onClick }: CatalogProductCardProps) {
     // Safely parse prices (handles both camelCase and snake_case)
-    const sellPrice = Number(product.sellPrice || product.sell_price || 0);
+    const sellPrice = Number(product.sellPrice || 0);
     const originalPrice = product.originalPrice ? Number(product.originalPrice) : null;
     const discount = product.discountPercentage ? Number(product.discountPercentage) : null;
 

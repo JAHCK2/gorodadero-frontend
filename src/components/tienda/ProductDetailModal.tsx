@@ -4,12 +4,13 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { X, Plus, Minus, ShoppingBag, Heart } from "lucide-react";
 import { GoWatermark } from "./CatalogProductCard";
+import type { Product } from "@/types/product";
 
 interface ProductDetailModalProps {
-    product: any;
-    allProducts?: any[];
+    product: Product;
+    allProducts?: Product[];
     onClose: () => void;
-    onAddToCart?: (product: any, quantity: number) => void;
+    onAddToCart?: (product: Product, quantity: number) => void;
 }
 
 export function ProductDetailModal({ product, allProducts = [], onClose, onAddToCart }: ProductDetailModalProps) {
@@ -28,7 +29,7 @@ export function ProductDetailModal({ product, allProducts = [], onClose, onAddTo
     };
 
     // Parse prices safely
-    const sellPrice = Number(product.sellPrice || product.sell_price || 0);
+    const sellPrice = Number(product.sellPrice || 0);
     const originalPrice = product.originalPrice ? Number(product.originalPrice) : null;
     const discount = product.discountPercentage ? Number(product.discountPercentage) : null;
     const formattedPrice = `$${sellPrice.toLocaleString("es-CO")}`;
@@ -160,7 +161,7 @@ export function ProductDetailModal({ product, allProducts = [], onClose, onAddTo
                                 style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
                             >
                                 {relatedProducts.map((item) => {
-                                    const itemPrice = Number(item.sellPrice || item.sell_price || 0);
+                                    const itemPrice = Number(item.sellPrice || 0);
                                     return (
                                         <div key={item.id} className="flex-none w-[130px] snap-start">
                                             <div className="bg-gray-50 rounded-2xl relative aspect-square mb-2 flex items-center justify-center overflow-hidden">
@@ -203,7 +204,7 @@ export function ProductDetailModal({ product, allProducts = [], onClose, onAddTo
                                 style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
                             >
                                 {complementaryProducts.map((item) => {
-                                    const itemPrice = Number(item.sellPrice || item.sell_price || 0);
+                                    const itemPrice = Number(item.sellPrice || 0);
                                     return (
                                         <div key={item.id} className="flex-none w-[130px] snap-start">
                                             <div className="bg-gray-50 rounded-2xl relative aspect-square mb-2 flex items-center justify-center overflow-hidden">
