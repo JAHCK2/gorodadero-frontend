@@ -41,13 +41,17 @@ interface Category {
 interface Product {
     id: string;
     name: string;
+    description: string;
+    imageUrl: string;
     sellPrice: number;
     buyPrice: number;
     stock: number;
     categoryId: string;
     unitType: string;
     unitValue: number | null;
-    barcode: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
 }
 
 interface MerchandisingClientProps {
@@ -127,64 +131,155 @@ function SortableSubCard({ sub, position, productCount }: { sub: Category; posit
     );
 }
 
-/* ═══════════════════════════════ TAB 2: INLINE EDIT ROW ═══════════════════════════════ */
+/* ═══════════════════════════════ TAB 2: PRODUCT ROW + EDIT MODAL ═══════════════════════════════ */
 
-function InlineProductRow({
-    product, isSelected, onToggle, onSave,
+function ProductRow({
+    product, isSelected, onToggle, onEdit,
 }: {
     product: Product; isSelected: boolean; onToggle: () => void;
-    onSave: (id: string, updates: Partial<Product>) => Promise<void>;
+    onEdit: () => void;
 }) {
-    const [editing, setEditing] = useState(false);
+    const formatCOP = (v: number) => "$" + v.toLocaleString("es-CO", { maximumFractionDigits: 0 });
+    return (
+        <div className="tree-product-row">
+            <input type="checkbox" checked={isSelected} onChange={onToggle} className="merch-checkbox" />
+            <span className="tree-p-name" title={product.name}>{product.name}</span>
+            <span className="tree-p-buy">{formatCOP(product.buyPrice)}</span>
+            <span className="tree-p-sell">{formatCOP(product.sellPrice)}</span>
+            <span className={`tree-p-stock ${product.stock <= 0 ? 'tree-p-stock--out' : product.stock < 5 ? 'tree-p-stock--low' : ''}`}>{product.stock}</span>
+            <span className="tree-p-unit">{product.unitType}{product.unitValue ? ` ${product.unitValue}` : ''}</span>
+            <span className={`tree-p-status ${product.isActive ? 'tree-p-status--on' : 'tree-p-status--off'}`}>{product.isActive ? '●' : '○'}</span>
+            <button className="tree-p-edit-btn" onClick={onEdit} title="Editar">✏️</button>
+        </div>
+    );
+}
+
+function EditProductModal({
+    product, categories, onSave, onClose,
+}: {
+    product: Product; categories: Category[];
+    onSave: (id: string, updates: Partial<Product>) => Promise<void>;
+    onClose: () => void;
+}) {
     const [draft, setDraft] = useState({ ...product });
     const [saving, setSaving] = useState(false);
 
-    function startEdit() { setDraft({ ...product }); setEditing(true); }
-    async function saveEdit() {
+    async function handleSave() {
         setSaving(true);
-        const changes: Record<string, unknown> = {};
-        if (draft.name !== product.name) changes.name = draft.name;
-        if (draft.sellPrice !== product.sellPrice) changes.sell_price = draft.sellPrice;
-        if (draft.buyPrice !== product.buyPrice) changes.buy_price = draft.buyPrice;
-        if (draft.stock !== product.stock) changes.stock = draft.stock;
-        if (draft.unitType !== product.unitType) changes.unit_type = draft.unitType;
-        if (draft.unitValue !== product.unitValue) changes.unit_value = draft.unitValue;
-        if (draft.barcode !== product.barcode) changes.barcode = draft.barcode;
-        if (Object.keys(changes).length > 0) {
-            await onSave(product.id, draft);
-        }
-        setEditing(false);
+        await onSave(product.id, draft);
         setSaving(false);
+        onClose();
     }
-    function cancelEdit() { setEditing(false); }
 
     const formatCOP = (v: number) => "$" + v.toLocaleString("es-CO", { maximumFractionDigits: 0 });
+    const suggestedPrice = Math.round(draft.buyPrice * 1.45); // ~45% margin
 
-    if (!editing) {
-        return (
-            <div className="tree-product-row">
-                <input type="checkbox" checked={isSelected} onChange={onToggle} className="merch-checkbox" />
-                <span className="tree-p-name" title={product.name}>{product.name}</span>
-                <span className="tree-p-price">{formatCOP(product.sellPrice)}</span>
-                <span className="tree-p-stock">{product.stock}</span>
-                <span className="tree-p-unit">{product.unitType} {product.unitValue ?? ""}</span>
-                <button className="tree-p-edit-btn" onClick={startEdit} title="Editar">✏️</button>
-            </div>
-        );
-    }
+    // Find current category path
+    const currentSub = categories.find(c => c.id === draft.categoryId);
+    const currentMacro = currentSub ? categories.find(c => c.id === currentSub.parentId) : null;
 
     return (
-        <div className="tree-product-row tree-product-row--editing">
-            <input type="checkbox" checked={isSelected} onChange={onToggle} className="merch-checkbox" />
-            <input className="tree-input tree-input--name" value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} placeholder="Nombre" />
-            <input className="tree-input tree-input--num" type="number" value={draft.sellPrice} onChange={e => setDraft({ ...draft, sellPrice: Number(e.target.value) })} placeholder="Venta" />
-            <input className="tree-input tree-input--num" type="number" value={draft.buyPrice} onChange={e => setDraft({ ...draft, buyPrice: Number(e.target.value) })} placeholder="Compra" />
-            <input className="tree-input tree-input--sm" type="number" value={draft.stock} onChange={e => setDraft({ ...draft, stock: Number(e.target.value) })} placeholder="Stock" />
-            <input className="tree-input tree-input--sm" value={draft.unitType} onChange={e => setDraft({ ...draft, unitType: e.target.value })} placeholder="Und" />
-            <input className="tree-input tree-input--sm" type="number" value={draft.unitValue ?? ""} onChange={e => setDraft({ ...draft, unitValue: e.target.value ? Number(e.target.value) : null })} placeholder="Qty" />
-            <input className="tree-input tree-input--bar" value={draft.barcode} onChange={e => setDraft({ ...draft, barcode: e.target.value })} placeholder="Barcode" />
-            <button className="tree-p-save-btn" onClick={saveEdit} disabled={saving}>{saving ? "..." : "✅"}</button>
-            <button className="tree-p-cancel-btn" onClick={cancelEdit}>❌</button>
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="edit-modal" onClick={e => e.stopPropagation()}>
+                <div className="edit-modal-header">
+                    <h3 className="edit-modal-title">✏️ Editar Producto</h3>
+                    <button className="edit-modal-close" onClick={onClose}>✕</button>
+                </div>
+
+                <div className="edit-modal-body">
+                    {/* Nombre */}
+                    <div className="edit-field">
+                        <label className="edit-label">Nombre</label>
+                        <input className="edit-input" value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} />
+                    </div>
+
+                    {/* Descripción */}
+                    <div className="edit-field">
+                        <label className="edit-label">Descripción</label>
+                        <textarea className="edit-textarea" value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })} rows={2} placeholder="Descripción del producto..." />
+                    </div>
+
+                    {/* Precios */}
+                    <div className="edit-row">
+                        <div className="edit-field">
+                            <label className="edit-label">💰 Valor de Compra</label>
+                            <input className="edit-input edit-input--price" type="number" value={draft.buyPrice} onChange={e => setDraft({ ...draft, buyPrice: Number(e.target.value) })} />
+                        </div>
+                        <div className="edit-field">
+                            <label className="edit-label">🏷️ Valor de Venta</label>
+                            <input className="edit-input edit-input--price-sell" type="number" value={draft.sellPrice} onChange={e => setDraft({ ...draft, sellPrice: Number(e.target.value) })} />
+                            <span className="edit-hint">Sugerido: {formatCOP(suggestedPrice)}</span>
+                        </div>
+                    </div>
+
+                    {/* Stock */}
+                    <div className="edit-field">
+                        <label className="edit-label">📦 Stock</label>
+                        <input className="edit-input edit-input--stock" type="number" value={draft.stock} onChange={e => setDraft({ ...draft, stock: Number(e.target.value) })} />
+                    </div>
+
+                    {/* Unidad */}
+                    <div className="edit-row">
+                        <div className="edit-field">
+                            <label className="edit-label">📏 Unidad</label>
+                            <select className="edit-select" value={draft.unitType} onChange={e => setDraft({ ...draft, unitType: e.target.value })}>
+                                <option value="">— Sin unidad —</option>
+                                <option value="g">Gramos (g)</option>
+                                <option value="kg">Kilos (kg)</option>
+                                <option value="ml">Mililitros (ml)</option>
+                                <option value="L">Litros (L)</option>
+                                <option value="und">Unidades (und)</option>
+                                <option value="paq">Paquete (paq)</option>
+                                <option value="caja">Caja</option>
+                                <option value="docena">Docena</option>
+                                <option value="lb">Libras (lb)</option>
+                            </select>
+                        </div>
+                        <div className="edit-field">
+                            <label className="edit-label">🔢 Cantidad</label>
+                            <input className="edit-input" type="number" value={draft.unitValue ?? ''} onChange={e => setDraft({ ...draft, unitValue: e.target.value ? Number(e.target.value) : null })} placeholder="Ej: 500" />
+                        </div>
+                    </div>
+
+                    {/* Categoría (read-only display) */}
+                    <div className="edit-field">
+                        <label className="edit-label">📂 Categoría actual</label>
+                        <div className="edit-category-badge">
+                            {currentMacro ? `${currentMacro.name} → ` : ''}{currentSub?.name || 'Sin categoría'}
+                        </div>
+                    </div>
+
+                    {/* Estado */}
+                    <div className="edit-field">
+                        <label className="edit-label">Estado</label>
+                        <div className="edit-toggle-row">
+                            <button className={`edit-toggle ${draft.isActive ? 'edit-toggle--on' : ''}`} onClick={() => setDraft({ ...draft, isActive: !draft.isActive })}>
+                                {draft.isActive ? '✅ Activo — Visible en tienda' : '⛔ Inactivo — Oculto'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Imagen URL */}
+                    <div className="edit-field">
+                        <label className="edit-label">🖼️ URL de Imagen</label>
+                        <input className="edit-input" value={draft.imageUrl} onChange={e => setDraft({ ...draft, imageUrl: e.target.value })} placeholder="https://..." />
+                        {draft.imageUrl && <img src={draft.imageUrl} alt="" className="edit-img-preview" />}
+                    </div>
+
+                    {/* Timestamps (read-only) */}
+                    <div className="edit-row edit-timestamps">
+                        <span>Creado: {draft.createdAt ? new Date(draft.createdAt).toLocaleDateString('es-CO') : '—'}</span>
+                        <span>Actualizado: {draft.updatedAt ? new Date(draft.updatedAt).toLocaleDateString('es-CO') : '—'}</span>
+                    </div>
+                </div>
+
+                <div className="edit-modal-footer">
+                    <button className="modal-btn modal-btn--cancel" onClick={onClose}>Cancelar</button>
+                    <button className="modal-btn modal-btn--confirm" onClick={handleSave} disabled={saving}>
+                        {saving ? 'Guardando...' : '💾 Guardar Cambios'}
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }
@@ -246,6 +341,9 @@ export default function MerchandisingClient({ categories, products }: Merchandis
     const [backupMsg, setBackupMsg] = useState<string | null>(null);
     const [restoreConfirm, setRestoreConfirm] = useState<Snapshot | null>(null);
 
+    // ── Edit modal state ──
+    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
     // Load snapshots on backup tab
     useEffect(() => {
         if (activeTab === "backup") loadSnapshots();
@@ -268,7 +366,7 @@ export default function MerchandisingClient({ categories, products }: Merchandis
     const filteredProducts = useMemo(() => {
         if (!searchFilter.trim()) return localProducts;
         const q = searchFilter.toLowerCase();
-        return localProducts.filter(p => p.name.toLowerCase().includes(q) || p.barcode?.includes(q));
+        return localProducts.filter(p => p.name.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q));
     }, [localProducts, searchFilter]);
 
     // ── Sensors ──
@@ -435,7 +533,9 @@ export default function MerchandisingClient({ categories, products }: Merchandis
             if (updatedProduct.stock !== undefined) apiBody.stock = updatedProduct.stock;
             if (updatedProduct.unitType !== undefined) apiBody.unit_type = updatedProduct.unitType;
             if (updatedProduct.unitValue !== undefined) apiBody.unit_value = updatedProduct.unitValue;
-            if (updatedProduct.barcode !== undefined) apiBody.barcode = updatedProduct.barcode;
+            if (updatedProduct.description !== undefined) apiBody.description = updatedProduct.description;
+            if (updatedProduct.imageUrl !== undefined) apiBody.image_url = updatedProduct.imageUrl;
+            if (updatedProduct.isActive !== undefined) apiBody.is_active = updatedProduct.isActive;
             const res = await fetch("/api/admin/products/update", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(apiBody) });
             const data = await res.json();
             if (data.success) {
@@ -553,22 +653,36 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                                                 {subExpanded && (
                                                     <div className="tree-products">
                                                         {subProducts.length > 0 && (
-                                                            <div className="tree-selectall">
-                                                                <label className="merch-checkbox-label">
-                                                                    <input type="checkbox" checked={allChecked} onChange={() => toggleAllInSub(sub.id)} className="merch-checkbox" />
-                                                                    Seleccionar todos ({subProducts.length})
-                                                                </label>
-                                                            </div>
+                                                            <>
+                                                                <div className="tree-selectall">
+                                                                    <label className="merch-checkbox-label">
+                                                                        <input type="checkbox" checked={allChecked} onChange={() => toggleAllInSub(sub.id)} className="merch-checkbox" />
+                                                                        Seleccionar todos ({subProducts.length})
+                                                                    </label>
+                                                                </div>
+                                                                <div className="tree-products-scroll">
+                                                                    <div className="tree-col-headers">
+                                                                        <span className="tree-col-check"></span>
+                                                                        <span className="tree-col-name">Nombre</span>
+                                                                        <span className="tree-col-buy">Compra</span>
+                                                                        <span className="tree-col-sell">Venta</span>
+                                                                        <span className="tree-col-stock">Stock</span>
+                                                                        <span className="tree-col-unit">Unidad</span>
+                                                                        <span className="tree-col-status">Estado</span>
+                                                                        <span className="tree-col-edit"></span>
+                                                                    </div>
+                                                                    {subProducts.map(p => (
+                                                                        <ProductRow
+                                                                            key={p.id}
+                                                                            product={p}
+                                                                            isSelected={selectedProducts.has(p.id)}
+                                                                            onToggle={() => toggleProduct(p.id)}
+                                                                            onEdit={() => setEditingProduct(p)}
+                                                                        />
+                                                                    ))}
+                                                                </div>
+                                                            </>
                                                         )}
-                                                        {subProducts.map(p => (
-                                                            <InlineProductRow
-                                                                key={p.id}
-                                                                product={p}
-                                                                isSelected={selectedProducts.has(p.id)}
-                                                                onToggle={() => toggleProduct(p.id)}
-                                                                onSave={handleProductSave}
-                                                            />
-                                                        ))}
                                                         {subProducts.length === 0 && <div className="tree-empty">Sin productos</div>}
                                                     </div>
                                                 )}
@@ -624,6 +738,16 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* ═══ EDIT PRODUCT MODAL ═══ */}
+            {editingProduct && (
+                <EditProductModal
+                    product={editingProduct}
+                    categories={categories}
+                    onSave={handleProductSave}
+                    onClose={() => setEditingProduct(null)}
+                />
             )}
 
             {/* ═══ CONFIRMATION MODAL ═══ */}
@@ -731,26 +855,61 @@ export default function MerchandisingClient({ categories, products }: Merchandis
 
                 /* Product rows */
                 .tree-products { padding: 4px 8px 8px 36px; }
+                .tree-products-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+                .tree-col-headers { display: flex; align-items: center; gap: 8px; padding: 4px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.04); min-width: 600px; }
+                .tree-col-check { width: 16px; flex-shrink: 0; }
+                .tree-col-name { flex: 1; min-width: 140px; }
+                .tree-col-buy { width: 70px; text-align: right; flex-shrink: 0; }
+                .tree-col-sell { width: 70px; text-align: right; flex-shrink: 0; }
+                .tree-col-stock { width: 45px; text-align: right; flex-shrink: 0; }
+                .tree-col-unit { width: 65px; flex-shrink: 0; }
+                .tree-col-status { width: 30px; text-align: center; flex-shrink: 0; }
+                .tree-col-edit { width: 30px; flex-shrink: 0; }
                 .tree-selectall { padding: 6px 8px; margin-bottom: 4px; }
                 .merch-checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #94a3b8; cursor: pointer; font-weight: 500; }
                 .merch-checkbox { width: 16px; height: 16px; accent-color: #3b82f6; cursor: pointer; }
-                .tree-product-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; transition: background 0.15s; font-size: 13px; }
+                .tree-product-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; transition: background 0.15s; font-size: 13px; min-width: 600px; }
                 .tree-product-row:hover { background: rgba(255,255,255,0.04); }
-                .tree-product-row--editing { background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.15); padding: 6px 8px; flex-wrap: wrap; gap: 6px; }
-                .tree-p-name { flex: 1; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 120px; }
-                .tree-p-price { color: #22c55e; font-weight: 600; font-size: 12px; width: 70px; text-align: right; flex-shrink: 0; }
-                .tree-p-stock { color: #94a3b8; font-size: 12px; width: 40px; text-align: right; flex-shrink: 0; }
-                .tree-p-unit { color: #64748b; font-size: 11px; width: 60px; flex-shrink: 0; }
-                .tree-p-edit-btn { border: none; background: transparent; cursor: pointer; font-size: 14px; padding: 2px 4px; opacity: 0.4; transition: opacity 0.2s; }
+                .tree-p-name { flex: 1; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 140px; }
+                .tree-p-buy { color: #f59e0b; font-weight: 500; font-size: 12px; width: 70px; text-align: right; flex-shrink: 0; }
+                .tree-p-sell { color: #22c55e; font-weight: 600; font-size: 12px; width: 70px; text-align: right; flex-shrink: 0; }
+                .tree-p-stock { color: #94a3b8; font-size: 12px; width: 45px; text-align: right; flex-shrink: 0; font-weight: 600; }
+                .tree-p-stock--low { color: #f59e0b; }
+                .tree-p-stock--out { color: #ef4444; }
+                .tree-p-unit { color: #64748b; font-size: 11px; width: 65px; flex-shrink: 0; }
+                .tree-p-status { width: 30px; text-align: center; font-size: 14px; flex-shrink: 0; }
+                .tree-p-status--on { color: #22c55e; }
+                .tree-p-status--off { color: #64748b; }
+                .tree-p-edit-btn { border: none; background: transparent; cursor: pointer; font-size: 14px; padding: 2px 4px; opacity: 0.4; transition: opacity 0.2s; width: 30px; flex-shrink: 0; }
                 .tree-p-edit-btn:hover { opacity: 1; }
-                .tree-p-save-btn, .tree-p-cancel-btn { border: none; background: transparent; cursor: pointer; font-size: 14px; padding: 2px 4px; }
-                .tree-input { padding: 6px 8px; border-radius: 6px; background: rgba(15,23,42,0.8); border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0; font-size: 12px; outline: none; }
-                .tree-input:focus { border-color: rgba(59,130,246,0.5); }
-                .tree-input--name { flex: 1; min-width: 140px; }
-                .tree-input--num { width: 80px; }
-                .tree-input--sm { width: 55px; }
-                .tree-input--bar { width: 100px; }
                 .tree-empty { padding: 12px; text-align: center; color: #475569; font-size: 12px; }
+
+                /* ═══ EDIT PRODUCT MODAL ═══ */
+                .edit-modal { width: 92%; max-width: 520px; max-height: 90vh; overflow-y: auto; border-radius: 24px; background: rgba(15,23,42,0.97); backdrop-filter: blur(24px); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 24px 80px rgba(0,0,0,0.5); animation: fadeIn 0.25s; }
+                .edit-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 24px 28px 0; }
+                .edit-modal-title { font-size: 20px; font-weight: 700; color: #f1f5f9; margin: 0; }
+                .edit-modal-close { border: none; background: rgba(255,255,255,0.06); color: #94a3b8; width: 32px; height: 32px; border-radius: 8px; font-size: 16px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+                .edit-modal-close:hover { background: rgba(255,255,255,0.12); color: #e2e8f0; }
+                .edit-modal-body { padding: 20px 28px; display: flex; flex-direction: column; gap: 16px; }
+                .edit-field { display: flex; flex-direction: column; gap: 6px; }
+                .edit-label { font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+                .edit-input { padding: 12px 16px; border-radius: 12px; background: rgba(30,41,59,0.8); border: 1px solid rgba(255,255,255,0.1); color: #e2e8f0; font-size: 15px; font-weight: 500; outline: none; transition: border-color 0.2s; }
+                .edit-input:focus { border-color: rgba(59,130,246,0.5); }
+                .edit-input--price { border-left: 3px solid #f59e0b; }
+                .edit-input--price-sell { border-left: 3px solid #22c55e; }
+                .edit-input--stock { border-left: 3px solid #3b82f6; max-width: 180px; }
+                .edit-textarea { padding: 12px 16px; border-radius: 12px; background: rgba(30,41,59,0.8); border: 1px solid rgba(255,255,255,0.1); color: #e2e8f0; font-size: 14px; outline: none; resize: vertical; font-family: inherit; transition: border-color 0.2s; }
+                .edit-textarea:focus { border-color: rgba(59,130,246,0.5); }
+                .edit-select { padding: 12px 16px; border-radius: 12px; background: rgba(30,41,59,0.8); border: 1px solid rgba(255,255,255,0.1); color: #e2e8f0; font-size: 14px; outline: none; cursor: pointer; }
+                .edit-hint { font-size: 11px; color: #64748b; margin-top: 2px; }
+                .edit-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+                .edit-category-badge { padding: 10px 14px; border-radius: 10px; background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.2); color: #a78bfa; font-size: 13px; font-weight: 600; }
+                .edit-toggle-row { display: flex; }
+                .edit-toggle { flex: 1; padding: 10px 16px; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; background: rgba(255,255,255,0.03); color: #94a3b8; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+                .edit-toggle--on { background: rgba(34,197,94,0.1); border-color: rgba(34,197,94,0.3); color: #22c55e; }
+                .edit-img-preview { width: 80px; height: 80px; object-fit: cover; border-radius: 10px; margin-top: 8px; border: 1px solid rgba(255,255,255,0.08); }
+                .edit-timestamps { display: flex; gap: 20px; font-size: 11px; color: #475569; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.04); }
+                .edit-modal-footer { display: flex; gap: 10px; justify-content: flex-end; padding: 0 28px 24px; }
 
                 /* ═══ MODAL ═══ */
                 .modal-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; animation: fadeIn 0.2s; }
