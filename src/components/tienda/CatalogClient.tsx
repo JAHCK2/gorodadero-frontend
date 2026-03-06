@@ -482,7 +482,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                                 />
                             )}
 
-                            <div ref={productAreaRef} className="flex-1 flex flex-col overflow-y-auto bg-white" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+                            <div ref={productAreaRef} className="relative flex-1 flex flex-col overflow-y-auto bg-white" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
                                 {deepViewSubId === null ? (
                                     <>
                                         {activeSubcategories.map((sub) => {
