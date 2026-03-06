@@ -6,7 +6,7 @@
 // Tab 2: Product Tree Manager (Browse, Drag-Move, Inline Edit)
 // ═══════════════════════════════════════════════════════════════
 
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import {
     DndContext,
     closestCenter,
@@ -191,8 +191,23 @@ function InlineProductRow({
 
 /* ═══════════════════════════════ MAIN COMPONENT ═══════════════════════════════ */
 
+// Undo/Redo operation type
+interface UndoOp {
+    type: "move";
+    label: string;
+    productIds: string[];
+    fromCategoryId: string;
+    toCategoryId: string;
+}
+interface Snapshot {
+    filename: string;
+    label: string;
+    createdAt: string;
+    productCount: number;
+}
+
 export default function MerchandisingClient({ categories, products }: MerchandisingClientProps) {
-    const [activeTab, setActiveTab] = useState<"organizar" | "mover">("organizar");
+    const [activeTab, setActiveTab] = useState<"organizar" | "mover" | "backup">("organizar");
 
     // ── Tab 1 state ──
     const [macros, setMacros] = useState<Category[]>(() =>
@@ -217,9 +232,31 @@ export default function MerchandisingClient({ categories, products }: Merchandis
     const [moving, setMoving] = useState(false);
     const [moveMsg, setMoveMsg] = useState<string | null>(null);
     const [searchFilter, setSearchFilter] = useState("");
-    // Confirmation modal
     const [confirmModal, setConfirmModal] = useState<{ targetSubId: string; targetSubName: string; targetMacroName: string } | null>(null);
     const dropTargetRef = useRef<string | null>(null);
+
+    // ── Undo/Redo stack (max 10 levels) ──
+    const [undoStack, setUndoStack] = useState<UndoOp[]>([]);
+    const [redoStack, setRedoStack] = useState<UndoOp[]>([]);
+    const MAX_UNDO = 10;
+
+    // ── Backup state ──
+    const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+    const [backupLoading, setBackupLoading] = useState(false);
+    const [backupMsg, setBackupMsg] = useState<string | null>(null);
+    const [restoreConfirm, setRestoreConfirm] = useState<Snapshot | null>(null);
+
+    // Load snapshots on backup tab
+    useEffect(() => {
+        if (activeTab === "backup") loadSnapshots();
+    }, [activeTab]);
+    async function loadSnapshots() {
+        try {
+            const res = await fetch("/api/admin/products/snapshot");
+            const data = await res.json();
+            setSnapshots(data.snapshots || []);
+        } catch { setSnapshots([]); }
+    }
 
     // ── Computed ──
     const productCounts = useMemo(() => {
@@ -302,19 +339,90 @@ export default function MerchandisingClient({ categories, products }: Merchandis
         if (!confirmModal) return;
         setMoving(true); setMoveMsg(null);
         try {
+            const ids = Array.from(selectedProducts);
+            // Record original category for undo (group by source category)
+            const firstProduct = localProducts.find(p => ids.includes(p.id));
+            const fromCategoryId = firstProduct?.categoryId || "";
+
             const res = await fetch("/api/admin/products/bulk-move", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ productIds: Array.from(selectedProducts), targetCategoryId: confirmModal.targetSubId }),
+                body: JSON.stringify({ productIds: ids, targetCategoryId: confirmModal.targetSubId }),
             });
             const data = await res.json();
             if (data.success) {
+                // Push to undo stack
+                const op: UndoOp = { type: "move", label: `${ids.length} → ${confirmModal.targetSubName}`, productIds: ids, fromCategoryId, toCategoryId: confirmModal.targetSubId };
+                setUndoStack(prev => [...prev.slice(-(MAX_UNDO - 1)), op]);
+                setRedoStack([]);
                 setMoveMsg(`✅ ${data.moved} productos movidos a "${data.targetCategory}"`);
                 setLocalProducts(prev => prev.map(p => selectedProducts.has(p.id) ? { ...p, categoryId: confirmModal.targetSubId } : p));
                 setSelectedProducts(new Set());
             } else { setMoveMsg(`❌ Error: ${data.error}`); }
         } catch (err) { setMoveMsg(`❌ Error: ${err}`); }
         finally { setMoving(false); setConfirmModal(null); setTimeout(() => setMoveMsg(null), 5000); }
+    }
+
+    // ── Undo/Redo handlers ──
+    async function handleUndo() {
+        if (undoStack.length === 0) return;
+        const op = undoStack[undoStack.length - 1];
+        setMoving(true);
+        try {
+            const res = await fetch("/api/admin/products/bulk-move", {
+                method: "PATCH", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ productIds: op.productIds, targetCategoryId: op.fromCategoryId }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setLocalProducts(prev => prev.map(p => op.productIds.includes(p.id) ? { ...p, categoryId: op.fromCategoryId } : p));
+                setUndoStack(prev => prev.slice(0, -1));
+                setRedoStack(prev => [...prev, op]);
+                setMoveMsg(`↩️ Deshacer: ${op.label}`);
+                setTimeout(() => setMoveMsg(null), 3000);
+            }
+        } catch { } finally { setMoving(false); }
+    }
+    async function handleRedo() {
+        if (redoStack.length === 0) return;
+        const op = redoStack[redoStack.length - 1];
+        setMoving(true);
+        try {
+            const res = await fetch("/api/admin/products/bulk-move", {
+                method: "PATCH", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ productIds: op.productIds, targetCategoryId: op.toCategoryId }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setLocalProducts(prev => prev.map(p => op.productIds.includes(p.id) ? { ...p, categoryId: op.toCategoryId } : p));
+                setRedoStack(prev => prev.slice(0, -1));
+                setUndoStack(prev => [...prev, op]);
+                setMoveMsg(`↪️ Rehacer: ${op.label}`);
+                setTimeout(() => setMoveMsg(null), 3000);
+            }
+        } catch { } finally { setMoving(false); }
+    }
+
+    // ── Backup handlers ──
+    async function handleCreateBackup() {
+        setBackupLoading(true); setBackupMsg(null);
+        try {
+            const res = await fetch("/api/admin/products/snapshot", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ label: `Backup manual — ${new Date().toLocaleString("es-CO")}` }) });
+            const data = await res.json();
+            if (data.success) { setBackupMsg(`✅ Backup guardado (${data.products} productos)`); await loadSnapshots(); }
+            else setBackupMsg(`❌ ${data.error}`);
+        } catch (e) { setBackupMsg(`❌ ${e}`); }
+        finally { setBackupLoading(false); setTimeout(() => setBackupMsg(null), 4000); }
+    }
+    async function handleRestore(snap: Snapshot) {
+        setBackupLoading(true); setBackupMsg(null);
+        try {
+            const res = await fetch("/api/admin/products/snapshot/restore", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ filename: snap.filename }) });
+            const data = await res.json();
+            if (data.success) { setBackupMsg(`✅ Restaurado: ${data.restored}/${data.total} productos`); window.location.reload(); }
+            else setBackupMsg(`❌ ${data.error}`);
+        } catch (e) { setBackupMsg(`❌ ${e}`); }
+        finally { setBackupLoading(false); setRestoreConfirm(null); }
     }
 
     // Inline product edit
@@ -355,6 +463,7 @@ export default function MerchandisingClient({ categories, products }: Merchandis
             <div className="merch-tabs">
                 <button className={`merch-tab ${activeTab === "organizar" ? "merch-tab--active" : ""}`} onClick={() => setActiveTab("organizar")}>📋 Organizar Pasillos</button>
                 <button className={`merch-tab ${activeTab === "mover" ? "merch-tab--active" : ""}`} onClick={() => setActiveTab("mover")}>📦 Gestión de Productos</button>
+                <button className={`merch-tab ${activeTab === "backup" ? "merch-tab--active" : ""}`} onClick={() => setActiveTab("backup")}>💾 Copias de Seguridad</button>
             </div>
 
             {/* ═══ TAB 1: CATEGORY TREE ORGANIZER ═══ */}
@@ -385,16 +494,19 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                     {/* Toolbar */}
                     <div className="merch-action-bar">
                         <div className="tree-toolbar-left">
-                            <input
-                                className="tree-search"
-                                placeholder="🔍 Buscar producto o barcode..."
-                                value={searchFilter}
-                                onChange={e => setSearchFilter(e.target.value)}
-                            />
-                            <button className="tree-expand-btn" onClick={expandAll}>📂 Expandir todo</button>
+                            <input className="tree-search" placeholder="🔍 Buscar producto o barcode..." value={searchFilter} onChange={e => setSearchFilter(e.target.value)} />
+                            <button className="tree-expand-btn" onClick={expandAll}>📂 Expandir</button>
                             <button className="tree-expand-btn" onClick={collapseAll}>📁 Colapsar</button>
                         </div>
-                        <span className="merch-selected-badge">{selectedProducts.size} seleccionados</span>
+                        <div className="tree-toolbar-right">
+                            <button className={`undo-btn ${undoStack.length > 0 ? 'undo-btn--active' : ''}`} disabled={undoStack.length === 0 || moving} onClick={handleUndo} title="Deshacer">
+                                ↩️ Deshacer {undoStack.length > 0 && <span className="undo-badge">{undoStack.length}</span>}
+                            </button>
+                            <button className={`undo-btn ${redoStack.length > 0 ? 'undo-btn--active' : ''}`} disabled={redoStack.length === 0 || moving} onClick={handleRedo} title="Rehacer">
+                                ↪️ Rehacer {redoStack.length > 0 && <span className="undo-badge">{redoStack.length}</span>}
+                            </button>
+                            <span className="merch-selected-badge">{selectedProducts.size} seleccionados</span>
+                        </div>
                     </div>
 
                     {moveMsg && <div className="merch-toast">{moveMsg}</div>}
@@ -466,6 +578,50 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                                 </div>
                             );
                         })}
+                    </div>
+                </div>
+            )}
+
+            {/* ═══ TAB 3: BACKUPS ═══ */}
+            {activeTab === "backup" && (
+                <div className="merch-section">
+                    <div className="merch-action-bar">
+                        <span className="merch-action-label">💾 Guarda copias antes de reorganizar la tienda</span>
+                        <button className="merch-save-btn merch-save-btn--active" disabled={backupLoading} onClick={handleCreateBackup}>
+                            {backupLoading ? "Guardando..." : "📸 Crear Backup Ahora"}
+                        </button>
+                    </div>
+                    {backupMsg && <div className="merch-toast">{backupMsg}</div>}
+                    <div className="backup-list">
+                        {snapshots.length === 0 && <div className="tree-empty">No hay copias de seguridad todavía. Crea una antes de reorganizar.</div>}
+                        {snapshots.map(snap => (
+                            <div key={snap.filename} className="backup-card">
+                                <div className="backup-info">
+                                    <strong className="backup-label">{snap.label}</strong>
+                                    <span className="backup-meta">{new Date(snap.createdAt).toLocaleString("es-CO")} · {snap.productCount} productos</span>
+                                </div>
+                                <button className="backup-restore-btn" onClick={() => setRestoreConfirm(snap)}>🔄 Restaurar</button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* ═══ RESTORE CONFIRMATION MODAL ═══ */}
+            {restoreConfirm && (
+                <div className="modal-overlay" onClick={() => setRestoreConfirm(null)}>
+                    <div className="modal-card" onClick={e => e.stopPropagation()}>
+                        <h3 className="modal-title">⚠️ Restaurar Backup</h3>
+                        <p className="modal-body">¿Estás seguro de restaurar <strong>{restoreConfirm.label}</strong>? Esto revertirá todos los productos a su estado guardado.</p>
+                        <div className="modal-route">
+                            <span className="modal-route-sub">{restoreConfirm.productCount} productos serán restaurados</span>
+                        </div>
+                        <div className="modal-actions">
+                            <button className="modal-btn modal-btn--cancel" onClick={() => setRestoreConfirm(null)}>Cancelar</button>
+                            <button className="modal-btn modal-btn--confirm" onClick={() => handleRestore(restoreConfirm)} disabled={backupLoading}>
+                                {backupLoading ? "Restaurando..." : "✅ Restaurar"}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -614,6 +770,23 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                 .modal-btn--cancel:hover { background: rgba(255,255,255,0.1); }
                 .modal-btn--confirm { background: linear-gradient(135deg,#3b82f6,#1d4ed8); color: white; box-shadow: 0 4px 16px rgba(59,130,246,0.25); }
                 .modal-btn--confirm:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(59,130,246,0.35); }
+
+                /* ═══ UNDO/REDO ═══ */
+                .tree-toolbar-right { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+                .undo-btn { padding: 7px 14px; border: none; border-radius: 8px; background: rgba(100,116,139,0.2); color: #64748b; font-size: 12px; font-weight: 600; cursor: not-allowed; transition: all 0.2s; display: flex; align-items: center; gap: 4px; }
+                .undo-btn--active { background: rgba(59,130,246,0.12); color: #60a5fa; cursor: pointer; }
+                .undo-btn--active:hover { background: rgba(59,130,246,0.2); }
+                .undo-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: rgba(59,130,246,0.3); font-size: 10px; font-weight: 700; }
+
+                /* ═══ BACKUPS ═══ */
+                .backup-list { display: flex; flex-direction: column; gap: 8px; }
+                .backup-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border-radius: 14px; background: rgba(15,23,42,0.5); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.06); transition: border-color 0.2s; }
+                .backup-card:hover { border-color: rgba(255,255,255,0.12); }
+                .backup-info { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+                .backup-label { font-size: 14px; font-weight: 600; color: #e2e8f0; }
+                .backup-meta { font-size: 12px; color: #64748b; }
+                .backup-restore-btn { padding: 8px 16px; border: 1px solid rgba(245,158,11,0.3); border-radius: 8px; background: rgba(245,158,11,0.1); color: #fbbf24; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; flex-shrink: 0; white-space: nowrap; }
+                .backup-restore-btn:hover { background: rgba(245,158,11,0.2); border-color: rgba(245,158,11,0.5); }
 
                 /* ── REUSABLE ── */
                 .admin-page-header { margin-bottom: 24px; }
