@@ -123,6 +123,23 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
         setDeepViewSubId(null);
     }, []);
 
+    /** Quick-link: jump directly to a subcategory's Deep View */
+    const handleQuickLink = useCallback((subSlug: string) => {
+        const sub = subcategories.find(s => s.slug === subSlug);
+        if (!sub) return;
+        // Navigate to the parent macro + auto-scroll to subcategory
+        window.history.pushState({ state: "deepView" }, "");
+        setNavState("deepView");
+        setActiveMacroId(sub.parentId);
+        setDeepViewSubId(null);
+        // After render, scroll to the target subcategory
+        setTimeout(() => {
+            setActiveSubId(sub.id);
+            const el = sectionRefs.current.get(sub.id);
+            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 150);
+    }, [subcategories]);
+
     const handleSeeMore = useCallback((subId: string) => {
         window.history.pushState({ state: "deepSubView" }, "");
         setDeepViewSubId(subId);
@@ -163,6 +180,58 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
         () => [...macroCategories].sort((a, b) => a.sortOrder - b.sortOrder),
         [macroCategories]
     );
+
+    /* ── Promotional Banner Definitions ── */
+    const PROMO_BANNERS = useMemo(() => [
+        {
+            slug: "cervezas",
+            label: "Cervezas",
+            subtitle: "Águila · Poker · Heineken",
+            emoji: "🍺",
+            gradient: "from-amber-600/80 via-yellow-700/70 to-amber-900/90",
+            border: "border-amber-400/30",
+        },
+        {
+            slug: "aguas",
+            label: "Aguas",
+            subtitle: "600ml · 5L · Coco · Colágeno",
+            emoji: "💧",
+            gradient: "from-sky-400/80 via-cyan-500/70 to-blue-700/90",
+            border: "border-sky-300/30",
+        },
+        {
+            slug: "leche-natural",
+            label: "Lácteos",
+            subtitle: "Yogurt · Avena · Leche · Quesos",
+            emoji: "🥛",
+            gradient: "from-blue-100/80 via-indigo-200/60 to-purple-300/70",
+            border: "border-blue-200/40",
+        },
+        {
+            slug: "gaseosas-y-maltas",
+            label: "Gaseosas",
+            subtitle: "Coca Cola · Pepsi · Postobón",
+            emoji: "🥤",
+            gradient: "from-red-600/80 via-rose-700/70 to-red-900/90",
+            border: "border-red-400/30",
+        },
+        {
+            slug: "snacks-salados",
+            label: "Snacks",
+            subtitle: "Papas · Doritos · De Todito",
+            emoji: "🍿",
+            gradient: "from-orange-500/80 via-amber-500/70 to-orange-700/90",
+            border: "border-orange-400/30",
+        },
+        {
+            slug: "gomitas-y-caramelos",
+            label: "Dulces",
+            subtitle: "Gomitas · Caramelos · Chicles",
+            emoji: "🍬",
+            gradient: "from-pink-500/80 via-fuchsia-500/70 to-purple-700/90",
+            border: "border-pink-400/30",
+        },
+    ], []);
 
     // Determine active tab for BottomNav
     const activeTab = navState === "home" ? "inicio" : "pasillos";
@@ -280,7 +349,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                     ═══════════════════════════════════════════════════════ */}
                 {navState === "home" && (
                     <>
-                        {/* ─── LO MÁS PEDIDO — 2 macros + Ver todo ─── */}
+                        {/* ─── BANNERS PROMOCIONALES — 6 Quick-Links ─── */}
                         <section className="px-4 pt-3 pb-2">
                             <div
                                 className="rounded-3xl p-5 bg-[#3fbfbf]/30 backdrop-blur-2xl border border-white/20"
@@ -292,116 +361,76 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                                     </h2>
                                     <button
                                         onClick={handleGoToMasterView}
-                                        className="flex items-center gap-0.5 text-[12px] font-bold text-white/70"
+                                        className="flex items-center gap-0.5 text-[12px] font-bold text-white/70 hover:text-white transition-colors"
                                     >
                                         Ver todo
                                         <ChevronRight className="w-3.5 h-3.5" />
                                     </button>
                                 </div>
-                                <div className="grid grid-cols-3 gap-3">
-                                    {sortedMacros.slice(0, 2).map((macro) => (
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    {PROMO_BANNERS.map((banner) => (
                                         <button
-                                            key={macro.id}
-                                            onClick={() => handleMacroSelect(macro.id)}
-                                            className="group flex flex-col items-center"
+                                            key={banner.slug}
+                                            onClick={() => handleQuickLink(banner.slug)}
+                                            className="group relative overflow-hidden rounded-2xl text-left transition-all duration-200 active:scale-[0.97]"
                                         >
+                                            {/* Banner background gradient */}
                                             <div
-                                                className="relative w-full aspect-square rounded-2xl overflow-hidden mb-2 transition-all duration-150 active:shadow-[inset_3px_3px_8px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.15)] bg-white/10 border border-white/20 flex items-center justify-center"
-                                                style={{ boxShadow: "6px 6px 16px rgba(0,0,0,0.25), -4px -4px 12px rgba(255,255,255,0.15)" }}
+                                                className={`relative h-28 rounded-2xl bg-gradient-to-br ${banner.gradient} ${banner.border} border overflow-hidden`}
+                                                style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.15)" }}
                                             >
-                                                <span className="text-4xl group-hover:scale-110 transition-transform duration-300">
-                                                    {macro.icon || "📦"}
-                                                </span>
-                                                <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-black/15 rounded-2xl" />
+                                                {/* Large emoji as visual */}
+                                                <div className="absolute -right-2 -bottom-3 text-[72px] opacity-30 group-hover:opacity-40 group-hover:scale-110 transition-all duration-500 select-none">
+                                                    {banner.emoji}
+                                                </div>
+                                                {/* Shimmer overlay */}
+                                                <div className="absolute inset-0 bg-gradient-to-tr from-white/10 via-transparent to-white/5" />
+
+                                                {/* Content */}
+                                                <div className="relative z-10 p-3.5 flex flex-col justify-between h-full">
+                                                    <div>
+                                                        <h3 className="text-[15px] font-black text-white leading-tight drop-shadow-md">
+                                                            {banner.label}
+                                                        </h3>
+                                                        <p className="text-[10px] font-semibold text-white/70 mt-0.5 leading-tight">
+                                                            {banner.subtitle}
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="text-[10px] font-bold text-white/80">Ver →</span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <span className="text-[11px] font-bold text-white/90 text-center leading-tight drop-shadow-sm">
-                                                {macro.name}
-                                            </span>
                                         </button>
                                     ))}
-                                    {/* ── "Ver todo" Ícono premium ── */}
-                                    <button
-                                        onClick={handleGoToMasterView}
-                                        className="group flex flex-col items-center"
-                                    >
-                                        <div
-                                            className="relative w-full aspect-square rounded-2xl overflow-hidden mb-2 transition-all duration-150 active:shadow-[inset_3px_3px_8px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.15)] bg-gradient-to-br from-[#10b981]/30 to-[#0ea5e9]/30 border border-[#5eead4]/40 flex items-center justify-center"
-                                            style={{ boxShadow: "6px 6px 16px rgba(0,0,0,0.25), -4px -4px 12px rgba(255,255,255,0.15)" }}
-                                        >
-                                            <div className="flex flex-col items-center gap-0.5">
-                                                <svg className="w-7 h-7 text-[#5eead4] group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                    <rect x="3" y="3" width="7" height="7" rx="1" />
-                                                    <rect x="14" y="3" width="7" height="7" rx="1" />
-                                                    <rect x="3" y="14" width="7" height="7" rx="1" />
-                                                    <rect x="14" y="14" width="7" height="7" rx="1" />
-                                                </svg>
-                                            </div>
-                                            <div className="absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-black/10 rounded-2xl" />
-                                        </div>
-                                        <span className="text-[11px] font-bold text-[#5eead4] text-center leading-tight drop-shadow-sm">
-                                            Ver todo
-                                        </span>
-                                    </button>
                                 </div>
                             </div>
                         </section>
 
-                        {/* ─── TODOS LOS PASILLOS — 2 macros + Ver todo ─── */}
-                        <section className="pt-4 pb-4">
-                            <div
-                                className="mx-4 rounded-3xl p-5 bg-[#3fbfbf]/30 backdrop-blur-2xl border border-white/20"
-                                style={{ boxShadow: "inset 4px 4px 12px rgba(255,255,255,0.15), inset -4px -4px 12px rgba(0,0,0,0.15), 0 8px 32px rgba(0,0,0,0.10)" }}
+                        {/* ─── VER TODOS LOS PASILLOS — CTA button ─── */}
+                        <section className="px-4 pt-3 pb-4">
+                            <button
+                                onClick={handleGoToMasterView}
+                                className="w-full flex items-center justify-between px-5 py-4 rounded-2xl bg-white/15 backdrop-blur-xl border border-white/25 hover:bg-white/20 transition-all duration-300 active:scale-[0.98]"
+                                style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.15)" }}
                             >
-                                <div className="flex items-center justify-between mb-4">
-                                    <h2 className="text-[16px] font-black text-white tracking-tight drop-shadow-sm">
-                                        Todos los pasillos
-                                    </h2>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#10b981]/40 to-[#0ea5e9]/40 border border-[#5eead4]/30 flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-[#5eead4]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <rect x="3" y="3" width="7" height="7" rx="1" />
+                                            <rect x="14" y="3" width="7" height="7" rx="1" />
+                                            <rect x="3" y="14" width="7" height="7" rx="1" />
+                                            <rect x="14" y="14" width="7" height="7" rx="1" />
+                                        </svg>
+                                    </div>
+                                    <div className="text-left">
+                                        <span className="text-[14px] font-bold text-white block">Todos los pasillos</span>
+                                        <span className="text-[11px] font-medium text-white/50">{sortedMacros.length} categorías</span>
+                                    </div>
                                 </div>
-
-                                <div className="grid grid-cols-3 gap-3">
-                                    {sortedMacros.slice(0, 2).map((macro) => (
-                                        <button
-                                            key={macro.id}
-                                            onClick={() => handleMacroSelect(macro.id)}
-                                            className="group flex-shrink-0 flex flex-col items-center"
-                                        >
-                                            <div
-                                                className="relative w-full aspect-square rounded-2xl overflow-hidden bg-white/10 border border-white/20 mb-2 transition-all duration-300 group-hover:scale-105 active:scale-95 active:shadow-[inset_3px_3px_8px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.15)] flex items-center justify-center"
-                                                style={{ boxShadow: "6px 6px 16px rgba(0,0,0,0.25), -4px -4px 12px rgba(255,255,255,0.15)" }}
-                                            >
-                                                <span className="text-3xl group-hover:scale-110 transition-transform duration-300">
-                                                    {macro.icon || "📦"}
-                                                </span>
-                                            </div>
-                                            <span className="text-[11px] font-bold text-white/90 text-center leading-tight block drop-shadow-sm">
-                                                {macro.name}
-                                            </span>
-                                        </button>
-                                    ))}
-                                    {/* ── "Ver todo" card ── */}
-                                    <button
-                                        onClick={handleGoToMasterView}
-                                        className="group flex-shrink-0 flex flex-col items-center"
-                                    >
-                                        <div
-                                            className="relative w-full aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-[#10b981]/30 to-[#0ea5e9]/30 border border-[#5eead4]/40 mb-2 transition-all duration-300 group-hover:scale-105 active:scale-95 flex items-center justify-center"
-                                            style={{ boxShadow: "6px 6px 16px rgba(0,0,0,0.25), -4px -4px 12px rgba(255,255,255,0.15)" }}
-                                        >
-                                            <div className="flex flex-col items-center gap-1">
-                                                <svg className="w-6 h-6 text-[#5eead4]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                    <circle cx="12" cy="12" r="10" />
-                                                    <path d="M12 8v8" />
-                                                    <path d="M8 12h8" />
-                                                </svg>
-                                                <span className="text-[9px] font-black text-[#5eead4]/80 uppercase tracking-wider">Más</span>
-                                            </div>
-                                        </div>
-                                        <span className="text-[11px] font-bold text-[#5eead4] text-center leading-tight block drop-shadow-sm">
-                                            Ver todo
-                                        </span>
-                                    </button>
-                                </div>
-                            </div>
+                                <ChevronRight className="w-5 h-5 text-white/40" />
+                            </button>
                         </section>
                     </>
                 )}
@@ -412,9 +441,8 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                     ═══════════════════════════════════════════════════════ */}
                 {navState === "masterView" && (
                     <section className="px-4 py-5">
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-3 gap-3">
                             {sortedMacros.map((macro) => {
-                                const macroSubCount = subcategories.filter(s => s.parentId === macro.id).length;
                                 const macroProductCount = initialProducts.filter(p => {
                                     const subIds = subcategories.filter(s => s.parentId === macro.id).map(s => s.id);
                                     return subIds.includes(p.categoryId);
@@ -424,28 +452,25 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                                     <button
                                         key={macro.id}
                                         onClick={() => handleMacroSelect(macro.id)}
-                                        className="group relative bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-100 p-4 text-left transition-all duration-200 active:scale-[0.97] hover:shadow-lg hover:border-gray-200"
+                                        className="group flex flex-col items-center bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-100 p-3 text-center transition-all duration-200 active:scale-[0.95] hover:shadow-lg hover:border-gray-200"
                                         style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}
                                     >
                                         {/* Emoji icon */}
-                                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100/50 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
-                                            <span className="text-3xl">
+                                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100/50 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                                            <span className="text-2xl">
                                                 {macro.icon || "📦"}
                                             </span>
                                         </div>
 
                                         {/* Name */}
-                                        <h3 className="text-[14px] font-bold text-gray-900 leading-tight mb-1">
+                                        <h3 className="text-[12px] font-bold text-gray-900 leading-tight mb-0.5 line-clamp-2">
                                             {macro.name}
                                         </h3>
 
-                                        {/* Product count badge */}
-                                        <span className="text-[11px] font-semibold text-gray-400">
-                                            {macroProductCount} productos
+                                        {/* Product count */}
+                                        <span className="text-[10px] font-semibold text-gray-400">
+                                            {macroProductCount}
                                         </span>
-
-                                        {/* Chevron */}
-                                        <ChevronRight className="absolute top-4 right-3 w-4 h-4 text-gray-300 group-hover:text-emerald-500 transition-colors" />
                                     </button>
                                 );
                             })}
