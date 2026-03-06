@@ -14,17 +14,14 @@ const supabase = createClient(
 );
 
 export default async function AdminCategoriasPage() {
+    // Use select("*") to avoid column name case sensitivity issues
     const [categoriesRes, productsRes] = await Promise.all([
-        supabase
-            .from("categories")
-            .select("id, name, slug, icon, sort_order, is_active, parentId")
-            .order("sort_order", { ascending: true }),
-        supabase
-            .from("products")
-            .select("id, name, sell_price, buy_price, stock, category_id, unit_type, unit_value, barcode")
-            .order("name", { ascending: true })
-            .limit(5000),
+        supabase.from("categories").select("*").order("sort_order", { ascending: true }),
+        supabase.from("products").select("*").order("name", { ascending: true }).limit(5000),
     ]);
+
+    if (categoriesRes.error) console.error("[Admin/Categorias] Categories error:", categoriesRes.error);
+    if (productsRes.error) console.error("[Admin/Categorias] Products error:", productsRes.error);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const categories = (categoriesRes.data || []).map((c: Record<string, any>) => ({
@@ -32,9 +29,9 @@ export default async function AdminCategoriasPage() {
         name: c.name,
         slug: c.slug,
         icon: c.icon,
-        sortOrder: c.sort_order,
+        sortOrder: c.sort_order ?? 0,
         isActive: c.is_active ?? true,
-        parentId: c.parentId ?? null,
+        parentId: c.parentId ?? c.parentid ?? null, // Handle Postgres casing
     }));
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
