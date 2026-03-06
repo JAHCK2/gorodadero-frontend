@@ -46,7 +46,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
     const [activeMacroId, setActiveMacroId] = useState<string | null>(null);
     const [activeSubId, setActiveSubId] = useState<string | null>(null);
     const [deepViewSubId, setDeepViewSubId] = useState<string | null>(null);
-    const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+    const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [isScrollSpy, setIsScrollSpy] = useState(true);
     const cartItemCount = useCartStore((s) => s.getItemCount());
     const [isSearchActive, setIsSearchActive] = useState(false);
@@ -133,7 +133,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
         () => [...macroCategories].sort((a, b) => a.sortOrder - b.sortOrder),
         [macroCategories]
     );
-    const topMacros = sortedMacros.slice(0, 6);
+    const topMacros = sortedMacros.slice(0, 2);
 
 
     /* ╔════════════════════════════════════════════════════════════════════╗
@@ -212,7 +212,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                     {/* Search bar + delivery chips — connected to real products */}
                     <SearchBar products={initialProducts} onActiveChange={setIsSearchActive} />
 
-                    {/* ─── LO MÁS PEDIDO — Top 6 Macro-categorías ─── */}
+                    {/* ─── LO MÁS PEDIDO — Top 2 Macro-categorías + Ver todo ─── */}
                     <section className="px-4 pt-3 pb-2">
                         <div
                             className="rounded-3xl p-5 bg-[#3fbfbf]/30 backdrop-blur-2xl border border-white/20"
@@ -251,6 +251,29 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                                         </span>
                                     </button>
                                 ))}
+                                {/* ── "Ver todo" Ícono premium ── */}
+                                <button
+                                    onClick={() => handleMacroSelect(sortedMacros[0]?.id || "")}
+                                    className="group flex flex-col items-center"
+                                >
+                                    <div
+                                        className="relative w-full aspect-square rounded-2xl overflow-hidden mb-2 transition-all duration-150 active:shadow-[inset_3px_3px_8px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.15)] bg-gradient-to-br from-[#10b981]/30 to-[#0ea5e9]/30 border border-[#5eead4]/40 flex items-center justify-center"
+                                        style={{ boxShadow: "6px 6px 16px rgba(0,0,0,0.25), -4px -4px 12px rgba(255,255,255,0.15)" }}
+                                    >
+                                        <div className="flex flex-col items-center gap-0.5">
+                                            <svg className="w-7 h-7 text-[#5eead4] group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <rect x="3" y="3" width="7" height="7" rx="1" />
+                                                <rect x="14" y="3" width="7" height="7" rx="1" />
+                                                <rect x="3" y="14" width="7" height="7" rx="1" />
+                                                <rect x="14" y="14" width="7" height="7" rx="1" />
+                                            </svg>
+                                        </div>
+                                        <div className="absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-black/10 rounded-2xl" />
+                                    </div>
+                                    <span className="text-[11px] font-bold text-[#5eead4] text-center leading-tight drop-shadow-sm">
+                                        Ver todo
+                                    </span>
+                                </button>
                             </div>
                         </div>
                     </section>
@@ -267,18 +290,15 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                                 </h2>
                             </div>
 
-                            <div
-                                className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1"
-                                style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-                            >
-                                {sortedMacros.map((macro) => (
+                            <div className="grid grid-cols-3 gap-3">
+                                {sortedMacros.slice(0, 2).map((macro) => (
                                     <button
                                         key={macro.id}
                                         onClick={() => handleMacroSelect(macro.id)}
-                                        className="group flex-shrink-0 w-24"
+                                        className="group flex-shrink-0 flex flex-col items-center"
                                     >
                                         <div
-                                            className="relative w-24 h-24 rounded-2xl overflow-hidden bg-white/10 border border-white/20 mb-2 transition-all duration-300 group-hover:scale-105 active:scale-95 active:shadow-[inset_3px_3px_8px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.15)] flex items-center justify-center"
+                                            className="relative w-full aspect-square rounded-2xl overflow-hidden bg-white/10 border border-white/20 mb-2 transition-all duration-300 group-hover:scale-105 active:scale-95 active:shadow-[inset_3px_3px_8px_rgba(0,0,0,0.25),inset_-2px_-2px_6px_rgba(255,255,255,0.15)] flex items-center justify-center"
                                             style={{ boxShadow: "6px 6px 16px rgba(0,0,0,0.25), -4px -4px 12px rgba(255,255,255,0.15)" }}
                                         >
                                             <span className="text-3xl group-hover:scale-110 transition-transform duration-300">
@@ -290,6 +310,28 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                                         </span>
                                     </button>
                                 ))}
+                                {/* ── "Ver todo" card ── */}
+                                <button
+                                    onClick={() => handleMacroSelect(sortedMacros[0]?.id || "")}
+                                    className="group flex-shrink-0 flex flex-col items-center"
+                                >
+                                    <div
+                                        className="relative w-full aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-[#10b981]/30 to-[#0ea5e9]/30 border border-[#5eead4]/40 mb-2 transition-all duration-300 group-hover:scale-105 active:scale-95 flex items-center justify-center"
+                                        style={{ boxShadow: "6px 6px 16px rgba(0,0,0,0.25), -4px -4px 12px rgba(255,255,255,0.15)" }}
+                                    >
+                                        <div className="flex flex-col items-center gap-1">
+                                            <svg className="w-6 h-6 text-[#5eead4]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <circle cx="12" cy="12" r="10" />
+                                                <path d="M12 8v8" />
+                                                <path d="M8 12h8" />
+                                            </svg>
+                                            <span className="text-[9px] font-black text-[#5eead4]/80 uppercase tracking-wider">Más</span>
+                                        </div>
+                                    </div>
+                                    <span className="text-[11px] font-bold text-[#5eead4] text-center leading-tight block drop-shadow-sm">
+                                        Ver todo
+                                    </span>
+                                </button>
                             </div>
                         </div>
                     </section>

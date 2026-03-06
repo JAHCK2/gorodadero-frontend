@@ -329,7 +329,7 @@ export function SearchBar({ products = [], onActiveChange }: SearchBarProps) {
             )}
 
             {/* ───────────────────────────────────────────
-                BARRA INLINE (sticky, normal flow)
+                BARRA INLINE (sticky glass header)
                 Solo visible cuando NO está activo el overlay
                 ─────────────────────────────────────────── */}
             <div
@@ -337,17 +337,19 @@ export function SearchBar({ products = [], onActiveChange }: SearchBarProps) {
                 style={{ paddingTop: "max(8px, env(safe-area-inset-top))" }}
             >
                 <div
-                    className="relative flex items-center h-[50px] rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 shadow-[0_2px_16px_rgba(0,0,0,0.08)] cursor-text"
+                    className="relative flex items-center h-[50px] rounded-2xl bg-white/15 backdrop-blur-xl border border-white/25 cursor-text transition-all duration-300 hover:bg-white/20 hover:border-white/35"
+                    style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.2)" }}
                     onClick={() => {
                         setIsActive(true);
+                        onActiveChange?.(true);
                         // Small delay to ensure overlay is mounted before focus
                         setTimeout(() => inputRef.current?.focus(), 100);
                     }}
                 >
-                    <div className="absolute left-3.5 flex items-center justify-center w-8 h-8 rounded-xl bg-white/20">
+                    <div className="absolute left-3.5 flex items-center justify-center w-8 h-8 rounded-xl bg-white/15 backdrop-blur-sm">
                         <Search className="w-4 h-4 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
                     </div>
-                    <span className="pl-14 text-sm font-bold text-white/70">
+                    <span className="pl-14 text-sm font-bold text-white/70 drop-shadow-[0_1px_2px_rgba(0,0,0,0.15)]">
                         ¿Qué necesitas hoy?
                     </span>
                 </div>
