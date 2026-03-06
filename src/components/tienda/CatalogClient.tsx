@@ -125,8 +125,9 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
 
     /** Quick-link: jump directly to a subcategory or macro's Deep View */
     const handleQuickLink = useCallback((slug: string) => {
-        // 1. Check if it's a macro-category first
-        const macro = macroCategories.find(m => m.slug === slug);
+        // 1. Check if it's a macro-category (try exact slug, then macro- prefixed)
+        const macro = macroCategories.find(m => m.slug === slug)
+            || macroCategories.find(m => m.slug === `macro-${slug}`);
         if (macro) {
             window.history.pushState({ state: "deepView" }, "");
             setNavState("deepView");
@@ -141,18 +142,17 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
         setNavState("deepView");
         setActiveMacroId(sub.parentId);
         setDeepViewSubId(null);
-        // After render, scroll to the target subcategory
+        // After render, scroll the product area to the target subcategory
         setTimeout(() => {
+            setIsScrollSpy(false);
             setActiveSubId(sub.id);
+            const container = productAreaRef.current;
             const el = sectionRefs.current.get(sub.id);
-            if (el) {
-                const container = productAreaRef.current;
-                if (container) {
-                    const elTop = el.offsetTop;
-                    container.scrollTo({ top: elTop, behavior: "smooth" });
-                }
+            if (container && el) {
+                container.scrollTo({ top: el.offsetTop, behavior: "smooth" });
             }
-        }, 200);
+            setTimeout(() => setIsScrollSpy(true), 800);
+        }, 300);
     }, [macroCategories, subcategories]);
 
     const handleSeeMore = useCallback((subId: string) => {
@@ -181,8 +181,11 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
     const handleSubSelect = useCallback((subId: string) => {
         if (deepViewSubId) { handleSeeMore(subId); return; }
         setActiveSubId(subId); setIsScrollSpy(false);
+        const container = productAreaRef.current;
         const el = sectionRefs.current.get(subId);
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (container && el) {
+            container.scrollTo({ top: el.offsetTop, behavior: "smooth" });
+        }
         setTimeout(() => setIsScrollSpy(true), 800);
     }, [deepViewSubId]);
 
