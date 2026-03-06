@@ -504,7 +504,8 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
                                                 <p className="text-sm text-gray-400">No hay subcategorías para &quot;{activeMacro?.name}&quot; todavía.</p>
                                             </div>
                                         )}
-                                        <div className="h-24" />
+                                        {/* Spacer: allows last subcategory to scroll to top */}
+                                        <div className="min-h-[80vh]" />
                                     </>
                                 ) : (
                                     (() => {
