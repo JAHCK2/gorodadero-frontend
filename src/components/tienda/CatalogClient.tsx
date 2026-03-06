@@ -59,6 +59,7 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
     const productAreaRef = useRef<HTMLDivElement>(null);
     const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
     const contentRef = useRef<HTMLDivElement>(null);
+    const quickLinkTargetRef = useRef<string | null>(null);
 
     const activeMacro = macroCategories.find(m => m.id === activeMacroId);
 
@@ -67,7 +68,11 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
         : [];
 
     useEffect(() => {
-        if (activeMacroId) setActiveSubId(activeSubcategories[0]?.id || null);
+        if (activeMacroId) {
+            // Skip reset if quick-link is controlling the scroll target
+            if (quickLinkTargetRef.current) return;
+            setActiveSubId(activeSubcategories[0]?.id || null);
+        }
         setDeepViewSubId(null);
         productAreaRef.current?.scrollTo({ top: 0 });
     }, [activeMacroId]);
@@ -138,21 +143,24 @@ export default function CatalogClient({ macroCategories, subcategories, initialP
         // 2. It's a subcategory — find parent macro and scroll to it
         const sub = subcategories.find(s => s.slug === slug);
         if (!sub) return;
+        // Signal: prevent useEffect from resetting activeSubId
+        quickLinkTargetRef.current = sub.id;
         window.history.pushState({ state: "deepView" }, "");
         setNavState("deepView");
         setActiveMacroId(sub.parentId);
         setDeepViewSubId(null);
+        setActiveSubId(sub.id);
+        setIsScrollSpy(false);
         // After render, scroll the product area to the target subcategory
         setTimeout(() => {
-            setIsScrollSpy(false);
-            setActiveSubId(sub.id);
             const container = productAreaRef.current;
             const el = sectionRefs.current.get(sub.id);
             if (container && el) {
                 container.scrollTo({ top: el.offsetTop, behavior: "smooth" });
             }
+            quickLinkTargetRef.current = null;
             setTimeout(() => setIsScrollSpy(true), 800);
-        }, 300);
+        }, 500);
     }, [macroCategories, subcategories]);
 
     const handleSeeMore = useCallback((subId: string) => {
