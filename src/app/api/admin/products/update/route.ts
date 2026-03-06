@@ -23,7 +23,7 @@ export async function PATCH(req: NextRequest) {
             stock?: number;
             unit_type?: string;
             unit_value?: number;
-            barcode?: string;
+            barcode?: string; // may not exist in all DBs
         };
 
         if (!id) {
@@ -38,7 +38,9 @@ export async function PATCH(req: NextRequest) {
         if (fields.stock !== undefined) updateData.stock = Number(fields.stock);
         if (fields.unit_type !== undefined) updateData.unit_type = fields.unit_type;
         if (fields.unit_value !== undefined) updateData.unit_value = Number(fields.unit_value);
-        if (fields.barcode !== undefined) updateData.barcode = fields.barcode || null;
+        if (fields.barcode !== undefined) {
+            try { updateData.barcode = fields.barcode || null; } catch { }
+        }
 
         if (Object.keys(updateData).length === 0) {
             return NextResponse.json({ error: "No fields to update" }, { status: 400 });

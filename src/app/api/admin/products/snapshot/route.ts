@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
         // Fetch current product-category assignments
         const { data: products, error } = await supabase
             .from("products")
-            .select("id, name, category_id, sell_price, buy_price, stock, unit_type, unit_value, barcode");
+            .select("*");
 
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
