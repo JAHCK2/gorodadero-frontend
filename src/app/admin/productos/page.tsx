@@ -73,7 +73,7 @@ export default function AdminProductosPage() {
         setLoading(true);
         const params = new URLSearchParams({
             page: String(page),
-            limit: String(PER_PAGE),
+            pageSize: String(PER_PAGE),
         });
         if (debouncedSearch) params.set("search", debouncedSearch);
         if (categoryFilter) params.set("categoryId", categoryFilter);
@@ -81,8 +81,8 @@ export default function AdminProductosPage() {
         fetch(`/api/products?${params}`)
             .then(r => r.json())
             .then(json => {
-                setProducts(json.items || json.products || []);
-                setTotal(json.total || json.items?.length || 0);
+                setProducts(json.data || []);
+                setTotal(json.pagination?.total || 0);
             })
             .catch(console.error)
             .finally(() => setLoading(false));
