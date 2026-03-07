@@ -132,25 +132,50 @@ function SortableSubCard({ sub, position, productCount }: { sub: Category; posit
     );
 }
 
+/* ═══════════════════════════════════ COLUMN CONFIG ═══════════════════════════════════ */
+
+const ALL_COLUMNS = [
+    { key: "name", label: "Nombre", width: "flex:1;min-width:140px", defaultOn: true },
+    { key: "barcode", label: "Barcode", width: "width:110px", defaultOn: true },
+    { key: "buyPrice", label: "Compra", width: "width:75px", defaultOn: true },
+    { key: "sellPrice", label: "Venta", width: "width:75px", defaultOn: true },
+    { key: "stock", label: "Stock", width: "width:50px", defaultOn: true },
+    { key: "unitType", label: "Unidad", width: "width:65px", defaultOn: true },
+    { key: "isActive", label: "Estado", width: "width:35px", defaultOn: true },
+    { key: "description", label: "Descripción", width: "width:150px", defaultOn: false },
+    { key: "imageUrl", label: "Imagen", width: "width:50px", defaultOn: false },
+    { key: "createdAt", label: "Creado", width: "width:85px", defaultOn: false },
+    { key: "updatedAt", label: "Actualizado", width: "width:85px", defaultOn: false },
+] as const;
+
+type ColumnKey = typeof ALL_COLUMNS[number]["key"];
+
+const DEFAULT_VISIBLE = new Set<string>(ALL_COLUMNS.filter(c => c.defaultOn).map(c => c.key));
+
 /* ═══════════════════════════════ TAB 2: PRODUCT ROW + EDIT MODAL ═══════════════════════════════ */
 
 function ProductRow({
-    product, isSelected, onToggle, onEdit,
+    product, isSelected, onToggle, onEdit, visibleCols,
 }: {
     product: Product; isSelected: boolean; onToggle: () => void;
-    onEdit: () => void;
+    onEdit: () => void; visibleCols: Set<string>;
 }) {
     const formatCOP = (v: number) => "$" + v.toLocaleString("es-CO", { maximumFractionDigits: 0 });
+    const formatDate = (d: string) => d ? new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
     return (
         <div className="tree-product-row">
             <input type="checkbox" checked={isSelected} onChange={onToggle} className="merch-checkbox" />
-            <span className="tree-p-name" title={product.name}>{product.name}</span>
-            <span className="tree-p-buy">{formatCOP(product.buyPrice)}</span>
-            <span className="tree-p-sell">{formatCOP(product.sellPrice)}</span>
-            <span className={`tree-p-stock ${product.stock <= 0 ? 'tree-p-stock--out' : product.stock < 5 ? 'tree-p-stock--low' : ''}`}>{product.stock}</span>
-            <span className="tree-p-unit">{product.unitType}{product.unitValue ? ` ${product.unitValue}` : ''}</span>
-            <span className={`tree-p-status ${product.isActive ? 'tree-p-status--on' : 'tree-p-status--off'}`}>{product.isActive ? '●' : '○'}</span>
-            <span className="tree-p-barcode" title={product.barcode || ''}>{product.barcode || '—'}</span>
+            {visibleCols.has("name") && <span className="tree-p-name" title={product.name}>{product.name}</span>}
+            {visibleCols.has("barcode") && <span className="tree-p-barcode" title={product.barcode || ''}>{product.barcode || '—'}</span>}
+            {visibleCols.has("buyPrice") && <span className="tree-p-buy">{formatCOP(product.buyPrice)}</span>}
+            {visibleCols.has("sellPrice") && <span className="tree-p-sell">{formatCOP(product.sellPrice)}</span>}
+            {visibleCols.has("stock") && <span className={`tree-p-stock ${product.stock <= 0 ? 'tree-p-stock--out' : product.stock < 5 ? 'tree-p-stock--low' : ''}`}>{product.stock}</span>}
+            {visibleCols.has("unitType") && <span className="tree-p-unit">{product.unitType}{product.unitValue ? ` ${product.unitValue}` : ''}</span>}
+            {visibleCols.has("isActive") && <span className={`tree-p-status ${product.isActive ? 'tree-p-status--on' : 'tree-p-status--off'}`}>{product.isActive ? '●' : '○'}</span>}
+            {visibleCols.has("description") && <span className="tree-p-desc" title={product.description}>{product.description || '—'}</span>}
+            {visibleCols.has("imageUrl") && <span className="tree-p-img">{product.imageUrl ? '🖼️' : '—'}</span>}
+            {visibleCols.has("createdAt") && <span className="tree-p-date">{formatDate(product.createdAt)}</span>}
+            {visibleCols.has("updatedAt") && <span className="tree-p-date">{formatDate(product.updatedAt)}</span>}
             <button className="tree-p-edit-btn" onClick={onEdit} title="Editar">✏️</button>
         </div>
     );
@@ -335,6 +360,8 @@ export default function MerchandisingClient({ categories, products }: Merchandis
     const [moving, setMoving] = useState(false);
     const [moveMsg, setMoveMsg] = useState<string | null>(null);
     const [searchFilter, setSearchFilter] = useState("");
+    const [visibleCols, setVisibleCols] = useState<Set<string>>(() => new Set(DEFAULT_VISIBLE));
+    const [showColPicker, setShowColPicker] = useState(false);
     const [confirmModal, setConfirmModal] = useState<{ targetSubId: string; targetSubName: string; targetMacroName: string } | null>(null);
     const dropTargetRef = useRef<string | null>(null);
 
@@ -606,6 +633,22 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                             <input className="tree-search" placeholder="🔍 Buscar producto o barcode..." value={searchFilter} onChange={e => setSearchFilter(e.target.value)} />
                             <button className="tree-expand-btn" onClick={expandAll}>📂 Expandir</button>
                             <button className="tree-expand-btn" onClick={collapseAll}>📁 Colapsar</button>
+                            <button className="tree-expand-btn col-picker-trigger" onClick={() => setShowColPicker(!showColPicker)}>⚙️ Columnas</button>
+                            {showColPicker && (
+                                <div className="col-picker-dropdown">
+                                    <div className="col-picker-title">Columnas visibles</div>
+                                    {ALL_COLUMNS.map(col => (
+                                        <label key={col.key} className="col-picker-item">
+                                            <input type="checkbox" checked={visibleCols.has(col.key)} onChange={() => {
+                                                const next = new Set(visibleCols);
+                                                if (next.has(col.key)) next.delete(col.key); else next.add(col.key);
+                                                setVisibleCols(next);
+                                            }} />
+                                            {col.label}
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                         <div className="tree-toolbar-right">
                             <button className={`undo-btn ${undoStack.length > 0 ? 'undo-btn--active' : ''}`} disabled={undoStack.length === 0 || moving} onClick={handleUndo} title="Deshacer">
@@ -672,13 +715,9 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                                                                 <div className="tree-products-scroll">
                                                                     <div className="tree-col-headers">
                                                                         <span className="tree-col-check"></span>
-                                                                        <span className="tree-col-name">Nombre</span>
-                                                                        <span className="tree-col-buy">Compra</span>
-                                                                        <span className="tree-col-sell">Venta</span>
-                                                                        <span className="tree-col-stock">Stock</span>
-                                                                        <span className="tree-col-unit">Unidad</span>
-                                                                        <span className="tree-col-status">Estado</span>
-                                                                        <span className="tree-col-barcode">Barcode</span>
+                                                                        {ALL_COLUMNS.filter(c => visibleCols.has(c.key)).map(col => (
+                                                                            <span key={col.key} className={`tree-col-${col.key}`} style={{ ...(col.key === 'name' ? { flex: 1, minWidth: 140 } : {}) }}>{col.label}</span>
+                                                                        ))}
                                                                         <span className="tree-col-edit"></span>
                                                                     </div>
                                                                     {subProducts.map(p => (
@@ -688,6 +727,7 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                                                                             isSelected={selectedProducts.has(p.id)}
                                                                             onToggle={() => toggleProduct(p.id)}
                                                                             onEdit={() => setEditingProduct(p)}
+                                                                            visibleCols={visibleCols}
                                                                         />
                                                                     ))}
                                                                 </div>
@@ -839,6 +879,13 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                 .tree-search:focus { border-color: rgba(59,130,246,0.5); }
                 .tree-expand-btn { padding: 8px 14px; border: none; border-radius: 8px; background: rgba(255,255,255,0.05); color: #94a3b8; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
                 .tree-expand-btn:hover { background: rgba(255,255,255,0.1); color: #e2e8f0; }
+                .tree-toolbar-left { position: relative; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+                .col-picker-trigger { position: relative; }
+                .col-picker-dropdown { position: absolute; top: 100%; left: 0; z-index: 50; margin-top: 6px; padding: 10px; border-radius: 12px; background: rgba(15,23,42,0.95); border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(12px); min-width: 180px; box-shadow: 0 8px 20px rgba(0,0,0,0.4); }
+                .col-picker-title { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+                .col-picker-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #cbd5e1; padding: 4px 2px; cursor: pointer; border-radius: 4px; }
+                .col-picker-item:hover { background: rgba(255,255,255,0.05); }
+                .col-picker-item input { accent-color: #3b82f6; width: 14px; height: 14px; }
                 .tree-container { display: flex; flex-direction: column; gap: 6px; }
 
                 /* Macro folder */
@@ -873,8 +920,12 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                 .tree-col-sell { width: 70px; text-align: right; flex-shrink: 0; }
                 .tree-col-stock { width: 45px; text-align: right; flex-shrink: 0; }
                 .tree-col-unit { width: 65px; flex-shrink: 0; }
-                .tree-col-status { width: 30px; text-align: center; flex-shrink: 0; }
-                .tree-col-barcode { width: 100px; flex-shrink: 0; }
+                .tree-col-status { width: 35px; text-align: center; flex-shrink: 0; }
+                .tree-col-barcode { width: 110px; flex-shrink: 0; }
+                .tree-col-description { width: 150px; flex-shrink: 0; }
+                .tree-col-imageUrl { width: 50px; flex-shrink: 0; text-align: center; }
+                .tree-col-createdAt { width: 85px; flex-shrink: 0; }
+                .tree-col-updatedAt { width: 85px; flex-shrink: 0; }
                 .tree-col-edit { width: 30px; flex-shrink: 0; }
                 .tree-selectall { padding: 6px 8px; margin-bottom: 4px; }
                 .merch-checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #94a3b8; cursor: pointer; font-weight: 500; }
@@ -893,7 +944,10 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                 .tree-p-status--off { color: #64748b; }
                 .tree-p-edit-btn { border: none; background: transparent; cursor: pointer; font-size: 14px; padding: 2px 4px; opacity: 0.4; transition: opacity 0.2s; width: 30px; flex-shrink: 0; }
                 .tree-p-edit-btn:hover { opacity: 1; }
-                .tree-p-barcode { color: #64748b; font-size: 11px; font-family: 'Courier New', monospace; width: 100px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .tree-p-barcode { color: #64748b; font-size: 11px; font-family: 'Courier New', monospace; width: 110px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .tree-p-desc { color: #475569; font-size: 11px; width: 150px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .tree-p-img { width: 50px; flex-shrink: 0; text-align: center; font-size: 14px; }
+                .tree-p-date { color: #475569; font-size: 10px; width: 85px; flex-shrink: 0; font-family: monospace; }
                 .tree-empty { padding: 12px; text-align: center; color: #475569; font-size: 12px; }
 
                 /* ═══ EDIT PRODUCT MODAL ═══ */
