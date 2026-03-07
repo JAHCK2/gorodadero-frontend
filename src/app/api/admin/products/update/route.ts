@@ -32,6 +32,8 @@ export async function PATCH(req: NextRequest) {
         if (body.description !== undefined) updateData.description = body.description;
         if (body.image_url !== undefined) updateData.image_url = body.image_url;
         if (body.is_active !== undefined) updateData.is_active = body.is_active;
+        if (body.barcode !== undefined) updateData.barcode = body.barcode;
+        if (body.category_id !== undefined) updateData.category_id = body.category_id;
 
         if (Object.keys(updateData).length === 0) {
             return NextResponse.json({ error: "No fields to update" }, { status: 400 });

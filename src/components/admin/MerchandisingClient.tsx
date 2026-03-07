@@ -276,12 +276,36 @@ function EditProductModal({
                         <input className="edit-input" value={draft.barcode || ''} onChange={e => setDraft({ ...draft, barcode: e.target.value || null })} placeholder="Ej: 7702191163498" />
                     </div>
 
-                    {/* Categoría (read-only display) */}
+                    {/* Categoría (dropdown selector) */}
                     <div className="edit-field">
-                        <label className="edit-label">📂 Categoría actual</label>
-                        <div className="edit-category-badge">
-                            {currentMacro ? `${currentMacro.name} → ` : ''}{currentSub?.name || 'Sin categoría'}
-                        </div>
+                        <label className="edit-label">📂 Categoría</label>
+                        <select
+                            className="edit-select edit-select--category"
+                            value={draft.categoryId || ''}
+                            onChange={e => setDraft({ ...draft, categoryId: e.target.value })}
+                        >
+                            <option value="">— Sin categoría —</option>
+                            {categories
+                                .filter(c => !c.parentId)
+                                .sort((a, b) => a.sortOrder - b.sortOrder)
+                                .map(macro => {
+                                    const subs = categories
+                                        .filter(c => c.parentId === macro.id)
+                                        .sort((a, b) => a.sortOrder - b.sortOrder);
+                                    return (
+                                        <optgroup key={macro.id} label={`${macro.icon || '📦'} ${macro.name}`}>
+                                            {subs.map(sub => (
+                                                <option key={sub.id} value={sub.id}>
+                                                    {sub.name}
+                                                </option>
+                                            ))}
+                                        </optgroup>
+                                    );
+                                })}
+                        </select>
+                        {currentMacro && (
+                            <span className="edit-hint">Actual: {currentMacro.name} → {currentSub?.name}</span>
+                        )}
                     </div>
 
                     {/* Estado */}
@@ -574,6 +598,7 @@ export default function MerchandisingClient({ categories, products }: Merchandis
             if (updatedProduct.imageUrl !== undefined) apiBody.image_url = updatedProduct.imageUrl;
             if (updatedProduct.isActive !== undefined) apiBody.is_active = updatedProduct.isActive;
             if (updatedProduct.barcode !== undefined) apiBody.barcode = updatedProduct.barcode;
+            if (updatedProduct.categoryId !== undefined) apiBody.category_id = updatedProduct.categoryId;
             const res = await fetch("/api/admin/products/update", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(apiBody) });
             const data = await res.json();
             if (data.success) {
@@ -670,7 +695,7 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                         {macros.map(macro => {
                             const subs = subsMap.get(macro.id) || [];
                             const macroExpanded = expandedMacros.has(macro.id);
-                            const macroProductCount = subs.reduce((sum, s) => sum + (productCounts.get(s.id) || 0), 0);
+                            const macroProductCount = subs.reduce((sum, s) => sum + (productCounts.get(s.id) || 0), 0) + (productCounts.get(macro.id) || 0);
 
                             return (
                                 <div key={macro.id} className="tree-macro">
@@ -742,6 +767,72 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                                             </div>
                                         );
                                     })}
+
+                                    {/* Products directly assigned to macro (no sub-category) */}
+                                    {macroExpanded && (productCounts.get(macro.id) || 0) > 0 && (() => {
+                                        const directProducts = filteredProducts.filter(p => p.categoryId === macro.id);
+                                        const directExpanded = expandedSubs.has(`direct-${macro.id}`);
+                                        const allChecked = directProducts.length > 0 && directProducts.every(p => selectedProducts.has(p.id));
+                                        return (
+                                            <div className="tree-sub">
+                                                <div className="tree-sub-header">
+                                                    <button className="tree-sub-toggle" onClick={() => toggleSub(`direct-${macro.id}`)}>
+                                                        <span className="tree-chevron tree-chevron--sub">{directExpanded ? "▼" : "▶"}</span>
+                                                        <span className="tree-sub-icon">📋</span>
+                                                        <span className="tree-sub-name">Sin subcategoría</span>
+                                                        <span className="tree-sub-badge">{directProducts.length}</span>
+                                                    </button>
+                                                    {selectedProducts.size > 0 && (
+                                                        <button className="tree-drop-btn" onClick={() => requestMove(macro.id)} title={`Mover ${selectedProducts.size} productos aquí`}>
+                                                            📥 Mover aquí
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                {directExpanded && (
+                                                    <div className="tree-products">
+                                                        {directProducts.length > 0 && (
+                                                            <>
+                                                                <div className="tree-selectall">
+                                                                    <label className="merch-checkbox-label">
+                                                                        <input type="checkbox" checked={allChecked} onChange={() => {
+                                                                            const ids = directProducts.map(p => p.id);
+                                                                            setSelectedProducts(prev => {
+                                                                                const next = new Set(prev);
+                                                                                if (allChecked) ids.forEach(id => next.delete(id));
+                                                                                else ids.forEach(id => next.add(id));
+                                                                                return next;
+                                                                            });
+                                                                        }} className="merch-checkbox" />
+                                                                        Seleccionar todos ({directProducts.length})
+                                                                    </label>
+                                                                </div>
+                                                                <div className="tree-products-scroll">
+                                                                    <div className="tree-col-headers">
+                                                                        <span className="tree-col-check"></span>
+                                                                        {ALL_COLUMNS.filter(c => visibleCols.has(c.key)).map(col => (
+                                                                            <span key={col.key} className={`tree-col-${col.key}`} style={{ ...(col.key === 'name' ? { flex: 1, minWidth: 140 } : {}) }}>{col.label}</span>
+                                                                        ))}
+                                                                        <span className="tree-col-edit"></span>
+                                                                    </div>
+                                                                    {directProducts.map(p => (
+                                                                        <ProductRow
+                                                                            key={p.id}
+                                                                            product={p}
+                                                                            isSelected={selectedProducts.has(p.id)}
+                                                                            onToggle={() => toggleProduct(p.id)}
+                                                                            onEdit={() => setEditingProduct(p)}
+                                                                            visibleCols={visibleCols}
+                                                                            categories={categories}
+                                                                        />
+                                                                    ))}
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             );
                         })}
