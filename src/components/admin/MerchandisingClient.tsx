@@ -405,6 +405,14 @@ export default function MerchandisingClient({ categories, products }: Merchandis
     // ── Edit modal state ──
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
+    // ── Create category modal ──
+    const [showCreateCat, setShowCreateCat] = useState(false);
+    const [newCatName, setNewCatName] = useState("");
+    const [newCatIcon, setNewCatIcon] = useState("📁");
+    const [newCatParentId, setNewCatParentId] = useState<string | null>(null);
+    const [creatingCat, setCreatingCat] = useState(false);
+    const [createCatMsg, setCreateCatMsg] = useState<string | null>(null);
+
     // Load snapshots on backup tab
     useEffect(() => {
         if (activeTab === "backup") loadSnapshots();
@@ -607,6 +615,36 @@ export default function MerchandisingClient({ categories, products }: Merchandis
         } catch { /* silently fail */ }
     }
 
+    // ── Create category handler ──
+    async function handleCreateCategory() {
+        if (!newCatName.trim()) return;
+        setCreatingCat(true); setCreateCatMsg(null);
+        try {
+            const res = await fetch("/api/admin/categories", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: newCatName.trim(), icon: newCatIcon, parentId: newCatParentId }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                const cat = data.category;
+                const newCat: Category = { id: cat.id, name: cat.name, slug: cat.slug, icon: cat.icon, sortOrder: cat.sort_order, isActive: cat.is_active, parentId: cat.parentId || null };
+                if (newCat.parentId) {
+                    setSubsMap(prev => { const next = new Map(prev); const existing = next.get(newCat.parentId!) || []; next.set(newCat.parentId!, [...existing, newCat]); return next; });
+                } else {
+                    setMacros(prev => [...prev, newCat]);
+                    setSubsMap(prev => { const next = new Map(prev); next.set(newCat.id, []); return next; });
+                }
+                setCreateCatMsg(`✅ "${newCat.name}" creada`);
+                setNewCatName(""); setNewCatIcon("📁"); setNewCatParentId(null);
+                setTimeout(() => { setShowCreateCat(false); setCreateCatMsg(null); }, 1500);
+            } else {
+                setCreateCatMsg(`❌ ${data.error}`);
+            }
+        } catch (e) { setCreateCatMsg(`❌ ${e}`); }
+        finally { setCreatingCat(false); }
+    }
+
     function expandAll() {
         setExpandedMacros(new Set(macros.map(m => m.id)));
         const allSubIds: string[] = [];
@@ -634,9 +672,12 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                 <div className="merch-section">
                     <div className="merch-action-bar">
                         <span className="merch-action-label">{hasChanges ? "⚠️ Tienes cambios sin guardar" : "Arrastra las tarjetas para reordenar"}</span>
-                        <button className={`merch-save-btn ${hasChanges ? "merch-save-btn--active" : ""}`} disabled={!hasChanges || saving} onClick={handleSaveOrder}>
-                            {saving ? "Guardando..." : "💾 Guardar Orden"}
-                        </button>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <button className="merch-create-btn" onClick={() => setShowCreateCat(true)}>➕ Nueva Categoría</button>
+                            <button className={`merch-save-btn ${hasChanges ? "merch-save-btn--active" : ""}`} disabled={!hasChanges || saving} onClick={handleSaveOrder}>
+                                {saving ? "Guardando..." : "💾 Guardar Orden"}
+                            </button>
+                        </div>
                     </div>
                     {saveMsg && <div className="merch-toast">{saveMsg}</div>}
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleMacroDragEnd}>
@@ -894,6 +935,64 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                 />
             )}
 
+            {/* ═══ CREATE CATEGORY MODAL ═══ */}
+            {showCreateCat && (
+                <div className="modal-overlay" onClick={() => { setShowCreateCat(false); setCreateCatMsg(null); }}>
+                    <div className="modal-card create-cat-modal" onClick={e => e.stopPropagation()}>
+                        <h3 className="modal-title">➕ Nueva Categoría</h3>
+
+                        <div className="create-cat-field">
+                            <label className="create-cat-label">Nombre</label>
+                            <input
+                                className="create-cat-input"
+                                value={newCatName}
+                                onChange={e => setNewCatName(e.target.value)}
+                                placeholder="Ej: Frutas y Verduras"
+                                autoFocus
+                            />
+                        </div>
+
+                        <div className="create-cat-field">
+                            <label className="create-cat-label">Icono</label>
+                            <div className="create-cat-icon-row">
+                                {['📁', '🥛', '🥩', '🍿', '🍫', '🥤', '🍺', '🧹', '🧴', '💊', '🥗', '🚬', '🍕', '🐾', '👶', '🎮', '🍎', '🏪', '📦', '💄'].map(ic => (
+                                    <button
+                                        key={ic}
+                                        className={`create-cat-icon-btn ${newCatIcon === ic ? 'create-cat-icon-btn--active' : ''}`}
+                                        onClick={() => setNewCatIcon(ic)}
+                                    >
+                                        {ic}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="create-cat-field">
+                            <label className="create-cat-label">Tipo</label>
+                            <select
+                                className="create-cat-select"
+                                value={newCatParentId || ''}
+                                onChange={e => setNewCatParentId(e.target.value || null)}
+                            >
+                                <option value="">🏷️ Categoría principal (macro)</option>
+                                {macros.map(m => (
+                                    <option key={m.id} value={m.id}>📂 Subcategoría de: {m.icon} {m.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {createCatMsg && <div className="merch-toast" style={{ margin: '8px 0' }}>{createCatMsg}</div>}
+
+                        <div className="modal-actions">
+                            <button className="modal-btn modal-btn--cancel" onClick={() => { setShowCreateCat(false); setCreateCatMsg(null); }}>Cancelar</button>
+                            <button className="modal-btn modal-btn--confirm" onClick={handleCreateCategory} disabled={creatingCat || !newCatName.trim()}>
+                                {creatingCat ? 'Creando...' : '✅ Crear Categoría'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* ═══ CONFIRMATION MODAL ═══ */}
             {confirmModal && (
                 <div className="modal-overlay" onClick={() => setConfirmModal(null)}>
@@ -940,6 +1039,19 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                 .merch-save-btn { padding: 10px 20px; border: none; border-radius: 10px; background: rgba(100,116,139,0.3); color: #94a3b8; font-size: 13px; font-weight: 600; cursor: not-allowed; transition: all 0.2s; }
                 .merch-save-btn--active { background: linear-gradient(135deg,#22c55e,#16a34a); color: white; cursor: pointer; box-shadow: 0 4px 16px rgba(34,197,94,0.3); }
                 .merch-save-btn--active:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(34,197,94,0.4); }
+                .merch-create-btn { padding: 10px 16px; border: 1px solid rgba(96,165,250,0.3); border-radius: 10px; background: rgba(96,165,250,0.1); color: #60a5fa; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+                .merch-create-btn:hover { background: rgba(96,165,250,0.2); border-color: rgba(96,165,250,0.5); transform: translateY(-1px); }
+                .create-cat-modal { max-width: 440px; }
+                .create-cat-field { margin-bottom: 14px; }
+                .create-cat-label { display: block; font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+                .create-cat-input { width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); background: rgba(15,23,42,0.6); color: #e2e8f0; font-size: 14px; outline: none; box-sizing: border-box; }
+                .create-cat-input:focus { border-color: rgba(96,165,250,0.5); }
+                .create-cat-select { width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); background: rgba(15,23,42,0.6); color: #e2e8f0; font-size: 13px; outline: none; cursor: pointer; box-sizing: border-box; }
+                .create-cat-select option { background: #0f172a; color: #e2e8f0; }
+                .create-cat-icon-row { display: flex; flex-wrap: wrap; gap: 6px; }
+                .create-cat-icon-btn { width: 36px; height: 36px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); background: rgba(15,23,42,0.4); font-size: 18px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
+                .create-cat-icon-btn:hover { background: rgba(96,165,250,0.12); border-color: rgba(96,165,250,0.3); }
+                .create-cat-icon-btn--active { border-color: #3b82f6; background: rgba(59,130,246,0.2); box-shadow: 0 0 8px rgba(59,130,246,0.3); }
                 .merch-toast { padding: 12px 18px; border-radius: 10px; background: rgba(15,23,42,0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); color: #e2e8f0; font-size: 13px; font-weight: 500; margin: 12px 0; animation: fadeIn 0.3s; }
                 .merch-selected-badge { padding: 3px 10px; border-radius: 8px; background: rgba(59,130,246,0.15); color: #60a5fa; font-size: 11px; font-weight: 700; }
 
