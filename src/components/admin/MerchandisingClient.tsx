@@ -166,7 +166,7 @@ function ProductRow({
     return (
         <div className="tree-product-row">
             <input type="checkbox" checked={isSelected} onChange={onToggle} className="merch-checkbox" />
-            {visibleCols.has("name") && <span className="tree-p-name" title={product.name}>{product.name}</span>}
+            {visibleCols.has("name") && <span className="tree-p-name tree-p-name--clickable" title={product.name} onClick={onEdit}>{product.name}</span>}
             {visibleCols.has("barcode") && <span className="tree-p-barcode" title={product.barcode || ''}>{product.barcode || '—'}</span>}
             {visibleCols.has("buyPrice") && <span className="tree-p-buy">{formatCOP(product.buyPrice)}</span>}
             {visibleCols.has("sellPrice") && <span className="tree-p-sell">{formatCOP(product.sellPrice)}</span>}
@@ -384,6 +384,7 @@ export default function MerchandisingClient({ categories, products }: Merchandis
     const [expandedSubs, setExpandedSubs] = useState<Set<string>>(new Set());
     const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
     const [moving, setMoving] = useState(false);
+    const [moveTargetId, setMoveTargetId] = useState("");
     const [moveMsg, setMoveMsg] = useState<string | null>(null);
     const [searchFilter, setSearchFilter] = useState("");
     const [visibleCols, setVisibleCols] = useState<Set<string>>(() => new Set(DEFAULT_VISIBLE));
@@ -778,6 +779,28 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                             <span className="merch-selected-badge">{selectedProducts.size} seleccionados</span>
                         </div>
                     </div>
+
+                    {/* Global move bar — always shows ALL categories */}
+                    {selectedProducts.size > 0 && (
+                        <div className="tree-move-bar">
+                            <span className="tree-move-label">📦 {selectedProducts.size} seleccionado{selectedProducts.size !== 1 ? 's' : ''}</span>
+                            <select className="tree-move-select" value={moveTargetId} onChange={e => setMoveTargetId(e.target.value)}>
+                                <option value="">Mover a...</option>
+                                {macros.map(macro => {
+                                    const mSubs = (subsMap.get(macro.id) || []).sort((a, b) => a.sortOrder - b.sortOrder);
+                                    return (
+                                        <optgroup key={macro.id} label={`${macro.icon || '📦'} ${macro.name}`}>
+                                            {mSubs.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                        </optgroup>
+                                    );
+                                })}
+                            </select>
+                            <button className="tree-move-btn" disabled={!moveTargetId || moving} onClick={() => moveTargetId && requestMove(moveTargetId)}>
+                                {moving ? 'Moviendo...' : '🚚 Mover'}
+                            </button>
+                            <button className="tree-move-clear" onClick={() => { setSelectedProducts(new Set()); setMoveTargetId(''); }}>✕</button>
+                        </div>
+                    )}
 
                     {moveMsg && <div className="merch-toast">{moveMsg}</div>}
 
@@ -1195,6 +1218,15 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                 .tree-product-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; transition: background 0.15s; font-size: 13px; min-width: 720px; }
                 .tree-product-row:hover { background: rgba(255,255,255,0.04); }
                 .tree-p-name { flex: 1; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 140px; }
+                .tree-p-name--clickable { cursor: pointer; transition: color 0.15s; }
+                .tree-p-name--clickable:hover { color: #60a5fa; text-decoration: underline; }
+                .tree-move-bar { display: flex; gap: 8px; align-items: center; padding: 12px 16px; border-radius: 12px; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); margin-bottom: 12px; flex-wrap: wrap; position: sticky; top: 0; z-index: 20; backdrop-filter: blur(12px); }
+                .tree-move-label { font-size: 13px; font-weight: 600; color: #60a5fa; white-space: nowrap; }
+                .tree-move-select { flex: 1; min-width: 160px; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(15,23,42,0.6); color: #e2e8f0; font-size: 12px; outline: none; cursor: pointer; }
+                .tree-move-select option, .tree-move-select optgroup { background: #0f172a; color: #e2e8f0; }
+                .tree-move-btn { padding: 8px 16px; border-radius: 8px; border: none; background: linear-gradient(135deg,#3b82f6,#6366f1); color: white; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+                .tree-move-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+                .tree-move-clear { padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.06); color: #94a3b8; font-size: 12px; cursor: pointer; }
                 .tree-p-buy { color: #f59e0b; font-weight: 500; font-size: 12px; width: 70px; text-align: right; flex-shrink: 0; }
                 .tree-p-sell { color: #22c55e; font-weight: 600; font-size: 12px; width: 70px; text-align: right; flex-shrink: 0; }
                 .tree-p-stock { color: #94a3b8; font-size: 12px; width: 45px; text-align: right; flex-shrink: 0; font-weight: 600; }
