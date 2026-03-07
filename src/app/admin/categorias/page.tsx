@@ -14,13 +14,27 @@ const supabase = createClient(
 );
 
 export default async function AdminCategoriasPage() {
-    const [categoriesRes, productsRes] = await Promise.all([
-        supabase.from("categories").select("*").order("sort_order", { ascending: true }),
-        supabase.from("products").select("*").order("name", { ascending: true }).limit(5000),
-    ]);
+    // Fetch categories
+    const categoriesRes = await supabase.from("categories").select("*").order("sort_order", { ascending: true });
 
     if (categoriesRes.error) console.error("[Admin/Categorias] Categories error:", categoriesRes.error);
-    if (productsRes.error) console.error("[Admin/Categorias] Products error:", productsRes.error);
+
+    // Fetch ALL products (Supabase caps at 1000 per request, so paginate)
+    let allProducts: Record<string, unknown>[] = [];
+    let offset = 0;
+    const PAGE = 1000;
+    while (true) {
+        const { data, error } = await supabase
+            .from("products")
+            .select("*")
+            .order("name", { ascending: true })
+            .range(offset, offset + PAGE - 1);
+        if (error) { console.error("[Admin/Categorias] Products error:", error); break; }
+        allProducts = allProducts.concat(data || []);
+        if (!data || data.length < PAGE) break;
+        offset += PAGE;
+    }
+    console.log(`[Admin/Categorias] Loaded ${allProducts.length} products`);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const categories = (categoriesRes.data || []).map((c: Record<string, any>) => ({
@@ -34,7 +48,7 @@ export default async function AdminCategoriasPage() {
     }));
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const products = (productsRes.data || []).map((p: Record<string, any>) => ({
+    const products = (allProducts).map((p: Record<string, any>) => ({
         id: p.id,
         name: p.name || "",
         description: p.description || "",
