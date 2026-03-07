@@ -49,6 +49,7 @@ interface Product {
     categoryId: string;
     unitType: string;
     unitValue: number | null;
+    barcode: string | null;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
@@ -149,6 +150,7 @@ function ProductRow({
             <span className={`tree-p-stock ${product.stock <= 0 ? 'tree-p-stock--out' : product.stock < 5 ? 'tree-p-stock--low' : ''}`}>{product.stock}</span>
             <span className="tree-p-unit">{product.unitType}{product.unitValue ? ` ${product.unitValue}` : ''}</span>
             <span className={`tree-p-status ${product.isActive ? 'tree-p-status--on' : 'tree-p-status--off'}`}>{product.isActive ? '●' : '○'}</span>
+            <span className="tree-p-barcode" title={product.barcode || ''}>{product.barcode || '—'}</span>
             <button className="tree-p-edit-btn" onClick={onEdit} title="Editar">✏️</button>
         </div>
     );
@@ -239,6 +241,12 @@ function EditProductModal({
                             <label className="edit-label">🔢 Cantidad</label>
                             <input className="edit-input" type="number" value={draft.unitValue ?? ''} onChange={e => setDraft({ ...draft, unitValue: e.target.value ? Number(e.target.value) : null })} placeholder="Ej: 500" />
                         </div>
+                    </div>
+
+                    {/* Barcode */}
+                    <div className="edit-field">
+                        <label className="edit-label">📊 Código de Barras</label>
+                        <input className="edit-input" value={draft.barcode || ''} onChange={e => setDraft({ ...draft, barcode: e.target.value || null })} placeholder="Ej: 7702191163498" />
                     </div>
 
                     {/* Categoría (read-only display) */}
@@ -366,7 +374,7 @@ export default function MerchandisingClient({ categories, products }: Merchandis
     const filteredProducts = useMemo(() => {
         if (!searchFilter.trim()) return localProducts;
         const q = searchFilter.toLowerCase();
-        return localProducts.filter(p => p.name.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q));
+        return localProducts.filter(p => p.name.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q) || p.barcode?.includes(q));
     }, [localProducts, searchFilter]);
 
     // ── Sensors ──
@@ -536,6 +544,7 @@ export default function MerchandisingClient({ categories, products }: Merchandis
             if (updatedProduct.description !== undefined) apiBody.description = updatedProduct.description;
             if (updatedProduct.imageUrl !== undefined) apiBody.image_url = updatedProduct.imageUrl;
             if (updatedProduct.isActive !== undefined) apiBody.is_active = updatedProduct.isActive;
+            if (updatedProduct.barcode !== undefined) apiBody.barcode = updatedProduct.barcode;
             const res = await fetch("/api/admin/products/update", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(apiBody) });
             const data = await res.json();
             if (data.success) {
@@ -669,6 +678,7 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                                                                         <span className="tree-col-stock">Stock</span>
                                                                         <span className="tree-col-unit">Unidad</span>
                                                                         <span className="tree-col-status">Estado</span>
+                                                                        <span className="tree-col-barcode">Barcode</span>
                                                                         <span className="tree-col-edit"></span>
                                                                     </div>
                                                                     {subProducts.map(p => (
@@ -856,7 +866,7 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                 /* Product rows */
                 .tree-products { padding: 4px 8px 8px 36px; }
                 .tree-products-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-                .tree-col-headers { display: flex; align-items: center; gap: 8px; padding: 4px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.04); min-width: 600px; }
+                .tree-col-headers { display: flex; align-items: center; gap: 8px; padding: 4px 10px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.04); min-width: 720px; }
                 .tree-col-check { width: 16px; flex-shrink: 0; }
                 .tree-col-name { flex: 1; min-width: 140px; }
                 .tree-col-buy { width: 70px; text-align: right; flex-shrink: 0; }
@@ -864,11 +874,12 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                 .tree-col-stock { width: 45px; text-align: right; flex-shrink: 0; }
                 .tree-col-unit { width: 65px; flex-shrink: 0; }
                 .tree-col-status { width: 30px; text-align: center; flex-shrink: 0; }
+                .tree-col-barcode { width: 100px; flex-shrink: 0; }
                 .tree-col-edit { width: 30px; flex-shrink: 0; }
                 .tree-selectall { padding: 6px 8px; margin-bottom: 4px; }
                 .merch-checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #94a3b8; cursor: pointer; font-weight: 500; }
                 .merch-checkbox { width: 16px; height: 16px; accent-color: #3b82f6; cursor: pointer; }
-                .tree-product-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; transition: background 0.15s; font-size: 13px; min-width: 600px; }
+                .tree-product-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; transition: background 0.15s; font-size: 13px; min-width: 720px; }
                 .tree-product-row:hover { background: rgba(255,255,255,0.04); }
                 .tree-p-name { flex: 1; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 140px; }
                 .tree-p-buy { color: #f59e0b; font-weight: 500; font-size: 12px; width: 70px; text-align: right; flex-shrink: 0; }
@@ -882,6 +893,7 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                 .tree-p-status--off { color: #64748b; }
                 .tree-p-edit-btn { border: none; background: transparent; cursor: pointer; font-size: 14px; padding: 2px 4px; opacity: 0.4; transition: opacity 0.2s; width: 30px; flex-shrink: 0; }
                 .tree-p-edit-btn:hover { opacity: 1; }
+                .tree-p-barcode { color: #64748b; font-size: 11px; font-family: 'Courier New', monospace; width: 100px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
                 .tree-empty { padding: 12px; text-align: center; color: #475569; font-size: 12px; }
 
                 /* ═══ EDIT PRODUCT MODAL ═══ */

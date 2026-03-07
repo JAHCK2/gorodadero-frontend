@@ -45,6 +45,7 @@ export default async function AdminCategoriasPage() {
         categoryId: p.category_id,
         unitType: p.unit_type || "",
         unitValue: p.unit_value != null ? Number(p.unit_value) : null,
+        barcode: p.barcode || null,
         isActive: p.is_active ?? true,
         createdAt: p.created_at || "",
         updatedAt: p.updated_at || "",
