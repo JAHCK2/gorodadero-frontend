@@ -785,8 +785,12 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                     <div className="tree-container">
                         {macros.map(macro => {
                             const subs = subsMap.get(macro.id) || [];
-                            const macroExpanded = expandedMacros.has(macro.id);
-                            const macroProductCount = subs.reduce((sum, s) => sum + (productCounts.get(s.id) || 0), 0) + (productCounts.get(macro.id) || 0);
+                            const isSearching = searchFilter.trim().length > 0;
+                            // When searching: count filtered products, hide empty macros, auto-expand
+                            const macroFilteredCount = subs.reduce((sum, s) => sum + filteredProducts.filter(p => p.categoryId === s.id).length, 0) + filteredProducts.filter(p => p.categoryId === macro.id).length;
+                            if (isSearching && macroFilteredCount === 0) return null; // Hide empty macros during search
+                            const macroExpanded = isSearching ? true : expandedMacros.has(macro.id);
+                            const macroProductCount = isSearching ? macroFilteredCount : subs.reduce((sum, s) => sum + (productCounts.get(s.id) || 0), 0) + (productCounts.get(macro.id) || 0);
 
                             return (
                                 <div key={macro.id} className="tree-macro">
@@ -798,8 +802,9 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                                     </button>
 
                                     {macroExpanded && subs.map(sub => {
-                                        const subExpanded = expandedSubs.has(sub.id);
+                                        const subExpanded = isSearching ? true : expandedSubs.has(sub.id);
                                         const subProducts = filteredProducts.filter(p => p.categoryId === sub.id);
+                                        if (isSearching && subProducts.length === 0) return null; // Hide empty subs during search
                                         const allChecked = subProducts.length > 0 && subProducts.every(p => selectedProducts.has(p.id));
                                         const isDropTarget = dropTargetRef.current === sub.id;
 
