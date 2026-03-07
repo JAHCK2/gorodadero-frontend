@@ -2,10 +2,10 @@
 
 // ═══════════════════════════════════════════
 // Admin — Gestión de Productos (Full-Featured)
-// All columns + tap-to-edit + category dropdown
+// Smart Search (barcode + fuzzy) + Multi-select + Bulk Move + Edit
 // ═══════════════════════════════════════════
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 
 interface Category {
     id: string;
@@ -37,25 +37,135 @@ interface Product {
 
 const formatCOP = (v: number) => "$" + v.toLocaleString("es-CO", { maximumFractionDigits: 0 });
 
+/* ─────────────────────────────────────────────────────────────
+   SMART SEARCH ENGINE — Idéntico al buscador estrella público
+   Prioridad: Barcode > Unit-Type Match > Pure Fuzzy
+   ───────────────────────────────────────────────────────────── */
+
+const UNIT_SYNONYMS: Record<string, string> = {
+    litro: "L", litros: "L", lt: "L", lts: "L",
+    mililitro: "ml", mililitros: "ml",
+    kilo: "kg", kilos: "kg", kilogramo: "kg", kilogramos: "kg",
+    gramo: "g", gramos: "g",
+    onza: "oz", onzas: "oz",
+    unidad: "und", unidades: "und",
+    libra: "lb", libras: "lb",
+};
+
+function normalize(s: string): string {
+    return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+}
+
+function smartSearch(products: Product[], query: string): Product[] {
+    const raw = query.trim();
+    if (!raw) return products; // Show ALL if no query
+
+    // 1) BARCODE EXACT MATCH
+    const barcodeMatch = products.find(p => p.barcode && p.barcode === raw);
+    if (barcodeMatch) {
+        const rest = fuzzyTokenSearch(products, raw).filter(p => p.id !== barcodeMatch.id);
+        return [barcodeMatch, ...rest];
+    }
+
+    // 2) UNIT-TYPE MATCH
+    const normalizedQuery = normalize(raw);
+    const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
+    let detectedUnitType: string | null = null;
+    const nameTokens: string[] = [];
+
+    for (const token of tokens) {
+        if (UNIT_SYNONYMS[token]) {
+            detectedUnitType = UNIT_SYNONYMS[token];
+        } else {
+            nameTokens.push(token);
+        }
+    }
+
+    if (detectedUnitType) {
+        const unitFiltered = products.filter(p => p.unitType === detectedUnitType);
+        let results: Product[];
+        if (nameTokens.length > 0) {
+            results = unitFiltered.filter(p => {
+                const haystack = normalize(p.name);
+                return nameTokens.every(t => haystack.includes(t));
+            }).sort((a, b) => a.name.localeCompare(b.name, "es"));
+        } else {
+            results = unitFiltered.sort((a, b) => a.name.localeCompare(b.name, "es"));
+        }
+        if (results.length > 0) return results;
+    }
+
+    // 3) PURE FUZZY TOKEN SEARCH
+    return fuzzyTokenSearch(products, raw);
+}
+
+function fuzzyTokenSearch(products: Product[], raw: string): Product[] {
+    const processed = normalize(raw);
+    if (!processed) return products;
+    const tokens = processed.split(/\s+/).filter(Boolean);
+    return products
+        .filter(p => {
+            const haystack = normalize(p.name) + " " + normalize(p.barcode || "");
+            return tokens.every(t => haystack.includes(t));
+        })
+        .sort((a, b) => a.name.localeCompare(b.name, "es"));
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+   ═══════════════════════════════════════════════════════════════ */
+
 export default function AdminProductosPage() {
-    const [products, setProducts] = useState<Product[]>([]);
+    const [allProducts, setAllProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [categoryFilter, setCategoryFilter] = useState("");
+
+    // Edit modal
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+    // Multi-select
+    const [selected, setSelected] = useState<Set<string>>(new Set());
+    const [moveTarget, setMoveTarget] = useState("");
+    const [moving, setMoving] = useState(false);
+    const [moveMsg, setMoveMsg] = useState<string | null>(null);
+
+    // Pagination
     const [page, setPage] = useState(1);
-    const [total, setTotal] = useState(0);
     const PER_PAGE = 50;
+
     const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [debouncedSearch, setDebouncedSearch] = useState("");
 
-    // Load categories
+    // Load ALL categories
     useEffect(() => {
         fetch("/api/categories")
             .then(r => r.json())
             .then(json => { if (json.all) setCategories(json.all); })
             .catch(console.error);
+    }, []);
+
+    // Load ALL products (client-side smart search needs full catalog)
+    useEffect(() => {
+        setLoading(true);
+        async function loadAll() {
+            const all: Product[] = [];
+            let pg = 1;
+            let hasMore = true;
+            while (hasMore) {
+                const res = await fetch(`/api/products?page=${pg}&pageSize=100`);
+                const json = await res.json();
+                const items = json.data || [];
+                all.push(...items);
+                const totalPages = json.pagination?.totalPages || 1;
+                hasMore = pg < totalPages;
+                pg++;
+            }
+            setAllProducts(all);
+            setLoading(false);
+        }
+        loadAll().catch(e => { console.error(e); setLoading(false); });
     }, []);
 
     // Debounced search
@@ -65,28 +175,44 @@ export default function AdminProductosPage() {
         searchTimer.current = setTimeout(() => {
             setDebouncedSearch(val);
             setPage(1);
-        }, 300);
+        }, 200);
     }, []);
 
-    // Load products
-    useEffect(() => {
-        setLoading(true);
-        const params = new URLSearchParams({
-            page: String(page),
-            pageSize: String(PER_PAGE),
-        });
-        if (debouncedSearch) params.set("search", debouncedSearch);
-        if (categoryFilter) params.set("categoryId", categoryFilter);
+    // Smart search + category filter
+    const filtered = useMemo(() => {
+        let list = allProducts;
+        if (categoryFilter) {
+            list = list.filter(p => p.categoryId === categoryFilter);
+        }
+        return smartSearch(list, debouncedSearch);
+    }, [allProducts, categoryFilter, debouncedSearch]);
 
-        fetch(`/api/products?${params}`)
-            .then(r => r.json())
-            .then(json => {
-                setProducts(json.data || []);
-                setTotal(json.pagination?.total || 0);
-            })
-            .catch(console.error)
-            .finally(() => setLoading(false));
-    }, [page, debouncedSearch, categoryFilter]);
+    const totalPages = Math.ceil(filtered.length / PER_PAGE);
+    const pageProducts = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
+    // Category helpers
+    const macros = categories.filter(c => !c.parentId).sort((a, b) => a.sortOrder - b.sortOrder);
+    const getCatName = (p: Product) => {
+        if (p.category?.name) return p.category.name;
+        const cat = categories.find(c => c.id === p.categoryId);
+        return cat?.name || "—";
+    };
+
+    // Select / deselect
+    const toggleSelect = (id: string) => {
+        setSelected(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    };
+    const selectAll = () => {
+        if (selected.size === pageProducts.length) {
+            setSelected(new Set());
+        } else {
+            setSelected(new Set(pageProducts.map(p => p.id)));
+        }
+    };
 
     // Save product edit
     async function handleSave(id: string, draft: Product) {
@@ -110,25 +236,41 @@ export default function AdminProductosPage() {
         });
         const data = await res.json();
         if (data.success) {
-            setProducts(prev => prev.map(p =>
-                p.id === id ? { ...p, ...draft } : p
+            // Update category reference
+            const newCat = categories.find(c => c.id === draft.categoryId);
+            setAllProducts(prev => prev.map(p =>
+                p.id === id ? { ...p, ...draft, category: newCat ? { id: newCat.id, name: newCat.name } : p.category } : p
             ));
         }
         setEditingProduct(null);
     }
 
-    const totalPages = Math.ceil(total / PER_PAGE);
-
-    // Get category name
-    const getCatName = (p: Product) => {
-        if (p.category?.name) return p.category.name;
-        const cat = categories.find(c => c.id === p.categoryId);
-        return cat?.name || "—";
-    };
-
-    // Get macro categories for filter
-    const macros = categories.filter(c => !c.parentId).sort((a, b) => a.sortOrder - b.sortOrder);
-    const subs = categories.filter(c => c.parentId);
+    // Bulk move
+    async function handleBulkMove() {
+        if (!moveTarget || selected.size === 0) return;
+        setMoving(true); setMoveMsg(null);
+        try {
+            const res = await fetch("/api/admin/products/bulk-move", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ productIds: Array.from(selected), categoryId: moveTarget }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                const cat = categories.find(c => c.id === moveTarget);
+                setAllProducts(prev => prev.map(p =>
+                    selected.has(p.id) ? { ...p, categoryId: moveTarget, category: cat ? { id: cat.id, name: cat.name } : p.category } : p
+                ));
+                setMoveMsg(`✅ ${selected.size} productos movidos a "${cat?.name}"`);
+                setSelected(new Set());
+                setMoveTarget("");
+                setTimeout(() => setMoveMsg(null), 3000);
+            } else {
+                setMoveMsg(`❌ ${data.error}`);
+            }
+        } catch (e) { setMoveMsg(`❌ ${e}`); }
+        finally { setMoving(false); }
+    }
 
     return (
         <div>
@@ -143,26 +285,69 @@ export default function AdminProductosPage() {
             <div className="prod-filters">
                 <select value={categoryFilter} onChange={e => { setCategoryFilter(e.target.value); setPage(1); }} className="prod-filter-select">
                     <option value="">Todas las categorías</option>
-                    {macros.map(macro => (
-                        <optgroup key={macro.id} label={`${macro.icon || '📦'} ${macro.name}`}>
-                            {subs.filter(s => s.parentId === macro.id).sort((a, b) => a.sortOrder - b.sortOrder).map(sub => (
-                                <option key={sub.id} value={sub.id}>{sub.name}</option>
-                            ))}
-                        </optgroup>
-                    ))}
+                    {macros.map(macro => {
+                        const subs = categories.filter(s => s.parentId === macro.id).sort((a, b) => a.sortOrder - b.sortOrder);
+                        return (
+                            <optgroup key={macro.id} label={`${macro.icon || '📦'} ${macro.name}`}>
+                                {subs.map(sub => (
+                                    <option key={sub.id} value={sub.id}>{sub.name}</option>
+                                ))}
+                            </optgroup>
+                        );
+                    })}
                 </select>
                 <div className="prod-search-wrap">
                     <span className="prod-search-icon">🔍</span>
-                    <input className="prod-search" placeholder="Buscar productos por nombre..." value={search} onChange={e => handleSearch(e.target.value)} />
+                    <input
+                        className="prod-search"
+                        placeholder="Smart Search: nombre, barcode, litro, kilo..."
+                        value={search}
+                        onChange={e => handleSearch(e.target.value)}
+                        inputMode="search"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        spellCheck={false}
+                    />
+                    {search && <button className="prod-search-clear" onClick={() => { setSearch(""); setDebouncedSearch(""); }}>✕</button>}
                 </div>
-                <span className="prod-count">{total.toLocaleString()} items</span>
+                <span className="prod-count">
+                    {loading ? "Cargando..." : `${filtered.length.toLocaleString()} items`}
+                </span>
             </div>
 
-            {/* Table with horizontal scroll */}
+            {/* Multi-select action bar */}
+            {selected.size > 0 && (
+                <div className="prod-bulk-bar">
+                    <span className="prod-bulk-label">📦 {selected.size} seleccionado{selected.size !== 1 ? 's' : ''}</span>
+                    <select className="prod-bulk-select" value={moveTarget} onChange={e => setMoveTarget(e.target.value)}>
+                        <option value="">Mover a...</option>
+                        {macros.map(macro => {
+                            const subs = categories.filter(s => s.parentId === macro.id).sort((a, b) => a.sortOrder - b.sortOrder);
+                            return (
+                                <optgroup key={macro.id} label={`${macro.icon || '📦'} ${macro.name}`}>
+                                    {subs.map(sub => (
+                                        <option key={sub.id} value={sub.id}>{sub.name}</option>
+                                    ))}
+                                </optgroup>
+                            );
+                        })}
+                    </select>
+                    <button className="prod-bulk-btn" disabled={!moveTarget || moving} onClick={handleBulkMove}>
+                        {moving ? 'Moviendo...' : '🚚 Mover'}
+                    </button>
+                    <button className="prod-bulk-clear" onClick={() => setSelected(new Set())}>✕ Limpiar</button>
+                </div>
+            )}
+            {moveMsg && <div className="prod-toast">{moveMsg}</div>}
+
+            {/* Table */}
             <div className="prod-table-wrap">
                 <table className="prod-table">
                     <thead>
                         <tr>
+                            <th className="prod-th prod-th-chk">
+                                <input type="checkbox" checked={pageProducts.length > 0 && selected.size === pageProducts.length} onChange={selectAll} />
+                            </th>
                             <th className="prod-th prod-th-name">Producto</th>
                             <th className="prod-th">Categoría</th>
                             <th className="prod-th prod-th-num">Barcode</th>
@@ -170,34 +355,37 @@ export default function AdminProductosPage() {
                             <th className="prod-th prod-th-num">Venta</th>
                             <th className="prod-th prod-th-num">Stock</th>
                             <th className="prod-th">Unidad</th>
-                            <th className="prod-th">Cantidad</th>
+                            <th className="prod-th">Cant.</th>
                             <th className="prod-th">Estado</th>
                         </tr>
                     </thead>
                     <tbody>
                         {loading && (
-                            <tr><td colSpan={9} className="prod-loading">Cargando...</td></tr>
+                            <tr><td colSpan={10} className="prod-loading">⏳ Cargando catálogo completo...</td></tr>
                         )}
-                        {!loading && products.length === 0 && (
-                            <tr><td colSpan={9} className="prod-empty">No se encontraron productos</td></tr>
+                        {!loading && filtered.length === 0 && (
+                            <tr><td colSpan={10} className="prod-empty">No se encontraron productos</td></tr>
                         )}
-                        {!loading && products.map(p => (
-                            <tr key={p.id} className="prod-row" onClick={() => setEditingProduct(p)}>
-                                <td className="prod-td prod-td-name">
+                        {!loading && pageProducts.map(p => (
+                            <tr key={p.id} className={`prod-row ${selected.has(p.id) ? 'prod-row--selected' : ''}`}>
+                                <td className="prod-td prod-td-chk" onClick={e => e.stopPropagation()}>
+                                    <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} />
+                                </td>
+                                <td className="prod-td prod-td-name" onClick={() => setEditingProduct(p)}>
                                     <span className="prod-name">{p.name}</span>
                                 </td>
-                                <td className="prod-td">
+                                <td className="prod-td" onClick={() => setEditingProduct(p)}>
                                     <span className="prod-cat-badge">{getCatName(p)}</span>
                                 </td>
-                                <td className="prod-td prod-td-num prod-barcode">{p.barcode || "—"}</td>
-                                <td className="prod-td prod-td-num">{formatCOP(p.buyPrice)}</td>
-                                <td className="prod-td prod-td-num prod-price-sell">{formatCOP(p.sellPrice)}</td>
-                                <td className="prod-td prod-td-num">
+                                <td className="prod-td prod-td-num prod-barcode" onClick={() => setEditingProduct(p)}>{p.barcode || "—"}</td>
+                                <td className="prod-td prod-td-num" onClick={() => setEditingProduct(p)}>{formatCOP(p.buyPrice)}</td>
+                                <td className="prod-td prod-td-num prod-price-sell" onClick={() => setEditingProduct(p)}>{formatCOP(p.sellPrice)}</td>
+                                <td className="prod-td prod-td-num" onClick={() => setEditingProduct(p)}>
                                     <span className={`prod-stock ${p.stock <= 0 ? 'prod-stock--out' : p.stock < 5 ? 'prod-stock--low' : ''}`}>{p.stock}</span>
                                 </td>
-                                <td className="prod-td">{p.unitType || "—"}</td>
-                                <td className="prod-td prod-td-num">{p.unitValue ?? "—"}</td>
-                                <td className="prod-td">
+                                <td className="prod-td" onClick={() => setEditingProduct(p)}>{p.unitType || "—"}</td>
+                                <td className="prod-td prod-td-num" onClick={() => setEditingProduct(p)}>{p.unitValue ?? "—"}</td>
+                                <td className="prod-td" onClick={() => setEditingProduct(p)}>
                                     <span className={`prod-status ${p.isActive ? 'prod-status--on' : 'prod-status--off'}`}>
                                         {p.isActive ? "Activo" : "Inactivo"}
                                     </span>
@@ -238,21 +426,34 @@ export default function AdminProductosPage() {
                 .prod-filter-select option, .prod-filter-select optgroup { background:#0f172a; color:#e2e8f0; }
                 .prod-search-wrap { position:relative; flex:1; min-width:200px; }
                 .prod-search-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:14px; pointer-events:none; }
-                .prod-search { width:100%; padding:8px 12px 8px 36px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); background:rgba(15,23,42,0.6); color:#e2e8f0; font-size:13px; outline:none; }
+                .prod-search { width:100%; padding:8px 12px 8px 36px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); background:rgba(15,23,42,0.6); color:#e2e8f0; font-size:13px; outline:none; box-sizing:border-box; }
                 .prod-search:focus { border-color:rgba(96,165,250,0.4); }
+                .prod-search-clear { position:absolute; right:10px; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.1); border:none; color:#94a3b8; font-size:12px; cursor:pointer; padding:2px 6px; border-radius:6px; }
                 .prod-count { font-size:13px; color:#64748b; white-space:nowrap; }
 
+                .prod-bulk-bar { display:flex; gap:10px; align-items:center; margin-bottom:12px; padding:12px 16px; border-radius:12px; background:rgba(59,130,246,0.08); border:1px solid rgba(59,130,246,0.2); flex-wrap:wrap; }
+                .prod-bulk-label { font-size:13px; font-weight:600; color:#60a5fa; }
+                .prod-bulk-select { padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:rgba(15,23,42,0.6); color:#e2e8f0; font-size:12px; outline:none; cursor:pointer; min-width:160px; }
+                .prod-bulk-select option, .prod-bulk-select optgroup { background:#0f172a; color:#e2e8f0; }
+                .prod-bulk-btn { padding:8px 16px; border-radius:8px; border:none; background:linear-gradient(135deg,#3b82f6,#6366f1); color:white; font-size:12px; font-weight:600; cursor:pointer; }
+                .prod-bulk-btn:disabled { opacity:0.4; cursor:not-allowed; }
+                .prod-bulk-clear { padding:6px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.06); color:#94a3b8; font-size:12px; cursor:pointer; }
+                .prod-toast { padding:10px 16px; border-radius:10px; background:rgba(15,23,42,0.7); border:1px solid rgba(255,255,255,0.08); color:#e2e8f0; font-size:13px; margin-bottom:12px; }
+
                 .prod-table-wrap { overflow-x:auto; border-radius:12px; border:1px solid rgba(255,255,255,0.06); background:rgba(15,23,42,0.4); -webkit-overflow-scrolling:touch; }
-                .prod-table { width:100%; border-collapse:collapse; min-width:800px; }
+                .prod-table { width:100%; border-collapse:collapse; min-width:850px; }
                 .prod-th { padding:10px 12px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:#64748b; border-bottom:1px solid rgba(255,255,255,0.06); white-space:nowrap; position:sticky; top:0; background:rgba(15,23,42,0.95); }
                 .prod-th-name { min-width:160px; }
                 .prod-th-num { text-align:right; }
+                .prod-th-chk { width:36px; text-align:center; }
 
                 .prod-row { cursor:pointer; transition:background 0.15s; }
                 .prod-row:hover { background:rgba(96,165,250,0.06); }
                 .prod-row:active { background:rgba(96,165,250,0.12); }
+                .prod-row--selected { background:rgba(59,130,246,0.08) !important; }
                 .prod-td { padding:10px 12px; font-size:13px; color:#cbd5e1; border-bottom:1px solid rgba(255,255,255,0.03); white-space:nowrap; vertical-align:middle; }
                 .prod-td-name { min-width:160px; max-width:240px; white-space:normal; }
+                .prod-td-chk { width:36px; text-align:center; cursor:default; }
                 .prod-name { font-weight:500; color:#e2e8f0; }
                 .prod-td-num { text-align:right; font-variant-numeric:tabular-nums; }
                 .prod-barcode { font-family:monospace; font-size:11px; color:#94a3b8; letter-spacing:0.3px; }
@@ -302,9 +503,11 @@ export default function AdminProductosPage() {
                 @media (max-width:768px) {
                     .admin-page-title { font-size:22px; }
                     .prod-filter-select { min-width:100%; }
-                    .prod-table { min-width:700px; }
+                    .prod-table { min-width:750px; }
                     .edit-panel { max-width:100%; border-radius:12px; }
                     .edt-row { grid-template-columns:1fr; }
+                    .prod-bulk-bar { flex-direction:column; align-items:stretch; }
+                    .prod-bulk-btn { width:100%; }
                 }
             `}</style>
         </div>
@@ -312,7 +515,6 @@ export default function AdminProductosPage() {
 }
 
 /* ═══════════ EDIT MODAL ═══════════ */
-
 function EditModal({ product, categories, onSave, onClose }: {
     product: Product;
     categories: Category[];
@@ -325,6 +527,7 @@ function EditModal({ product, categories, onSave, onClose }: {
     const currentSub = categories.find(c => c.id === draft.categoryId);
     const currentMacro = currentSub ? categories.find(c => c.id === currentSub.parentId) : null;
     const suggestedPrice = Math.round(draft.buyPrice * 1.45);
+    const macros = categories.filter(c => !c.parentId).sort((a, b) => a.sortOrder - b.sortOrder);
 
     async function handleSave() {
         setSaving(true);
@@ -393,19 +596,16 @@ function EditModal({ product, categories, onSave, onClose }: {
                         <label className="edt-label">📂 Categoría</label>
                         <select className="edt-select" value={draft.categoryId || ''} onChange={e => setDraft({ ...draft, categoryId: e.target.value })}>
                             <option value="">— Sin categoría —</option>
-                            {categories
-                                .filter(c => !c.parentId)
-                                .sort((a, b) => a.sortOrder - b.sortOrder)
-                                .map(macro => {
-                                    const macrSubs = categories.filter(c => c.parentId === macro.id).sort((a, b) => a.sortOrder - b.sortOrder);
-                                    return (
-                                        <optgroup key={macro.id} label={`${macro.icon || '📦'} ${macro.name}`}>
-                                            {macrSubs.map(sub => (
-                                                <option key={sub.id} value={sub.id}>{sub.name}</option>
-                                            ))}
-                                        </optgroup>
-                                    );
-                                })}
+                            {macros.map(macro => {
+                                const subs = categories.filter(c => c.parentId === macro.id).sort((a, b) => a.sortOrder - b.sortOrder);
+                                return (
+                                    <optgroup key={macro.id} label={`${macro.icon || '📦'} ${macro.name}`}>
+                                        {subs.map(sub => (
+                                            <option key={sub.id} value={sub.id}>{sub.name}</option>
+                                        ))}
+                                    </optgroup>
+                                );
+                            })}
                         </select>
                         {currentMacro && <span className="edt-hint">Actual: {currentMacro.name} → {currentSub?.name}</span>}
                     </div>

@@ -432,10 +432,60 @@ export default function MerchandisingClient({ categories, products }: Merchandis
         return map;
     }, [localProducts]);
 
+    // ── Smart Search Engine (identical to storefront) ──
+    const UNIT_SYNONYMS: Record<string, string> = {
+        litro: "L", litros: "L", lt: "L", lts: "L",
+        mililitro: "ml", mililitros: "ml",
+        kilo: "kg", kilos: "kg", kilogramo: "kg", kilogramos: "kg",
+        gramo: "g", gramos: "g",
+        onza: "oz", onzas: "oz",
+        unidad: "und", unidades: "und",
+        libra: "lb", libras: "lb",
+    };
+    function searchNormalize(s: string): string {
+        return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    }
+
     const filteredProducts = useMemo(() => {
         if (!searchFilter.trim()) return localProducts;
-        const q = searchFilter.toLowerCase();
-        return localProducts.filter(p => p.name.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q) || p.barcode?.includes(q));
+        const raw = searchFilter.trim();
+
+        // 1) Barcode exact match
+        const barcodeHit = localProducts.find(p => p.barcode && p.barcode === raw);
+        const fuzzySearch = (list: Product[], q: string): Product[] => {
+            const processed = searchNormalize(q);
+            if (!processed) return list;
+            const tokens = processed.split(/\s+/).filter(Boolean);
+            return list.filter(p => {
+                const haystack = searchNormalize(p.name) + " " + searchNormalize(p.barcode || "");
+                return tokens.every(t => haystack.includes(t));
+            }).sort((a, b) => a.name.localeCompare(b.name, "es"));
+        };
+
+        if (barcodeHit) {
+            const rest = fuzzySearch(localProducts, raw).filter(p => p.id !== barcodeHit.id);
+            return [barcodeHit, ...rest];
+        }
+
+        // 2) Unit synonym match
+        const normalizedQ = searchNormalize(raw);
+        const tokens = normalizedQ.split(/\s+/).filter(Boolean);
+        let detectedUnit: string | null = null;
+        const nameTokens: string[] = [];
+        for (const t of tokens) {
+            if (UNIT_SYNONYMS[t]) detectedUnit = UNIT_SYNONYMS[t];
+            else nameTokens.push(t);
+        }
+        if (detectedUnit) {
+            const unitFiltered = localProducts.filter(p => p.unitType === detectedUnit);
+            const results = nameTokens.length > 0
+                ? unitFiltered.filter(p => { const h = searchNormalize(p.name); return nameTokens.every(t => h.includes(t)); })
+                : unitFiltered;
+            if (results.length > 0) return results.sort((a, b) => a.name.localeCompare(b.name, "es"));
+        }
+
+        // 3) Pure fuzzy
+        return fuzzySearch(localProducts, raw);
     }, [localProducts, searchFilter]);
 
     // ── Sensors ──
