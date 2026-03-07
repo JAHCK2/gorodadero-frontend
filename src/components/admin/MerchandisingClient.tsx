@@ -142,6 +142,7 @@ const ALL_COLUMNS = [
     { key: "stock", label: "Stock", width: "width:50px", defaultOn: true },
     { key: "unitType", label: "Unidad", width: "width:65px", defaultOn: true },
     { key: "isActive", label: "Estado", width: "width:35px", defaultOn: true },
+    { key: "category", label: "Categoría", width: "width:120px", defaultOn: true },
     { key: "description", label: "Descripción", width: "width:150px", defaultOn: false },
     { key: "imageUrl", label: "Imagen", width: "width:50px", defaultOn: false },
     { key: "createdAt", label: "Creado", width: "width:85px", defaultOn: false },
@@ -155,10 +156,10 @@ const DEFAULT_VISIBLE = new Set<string>(ALL_COLUMNS.filter(c => c.defaultOn).map
 /* ═══════════════════════════════ TAB 2: PRODUCT ROW + EDIT MODAL ═══════════════════════════════ */
 
 function ProductRow({
-    product, isSelected, onToggle, onEdit, visibleCols,
+    product, isSelected, onToggle, onEdit, visibleCols, categories,
 }: {
     product: Product; isSelected: boolean; onToggle: () => void;
-    onEdit: () => void; visibleCols: Set<string>;
+    onEdit: () => void; visibleCols: Set<string>; categories: Category[];
 }) {
     const formatCOP = (v: number) => "$" + v.toLocaleString("es-CO", { maximumFractionDigits: 0 });
     const formatDate = (d: string) => d ? new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
@@ -172,6 +173,7 @@ function ProductRow({
             {visibleCols.has("stock") && <span className={`tree-p-stock ${product.stock <= 0 ? 'tree-p-stock--out' : product.stock < 5 ? 'tree-p-stock--low' : ''}`}>{product.stock}</span>}
             {visibleCols.has("unitType") && <span className="tree-p-unit">{product.unitType}{product.unitValue ? ` ${product.unitValue}` : ''}</span>}
             {visibleCols.has("isActive") && <span className={`tree-p-status ${product.isActive ? 'tree-p-status--on' : 'tree-p-status--off'}`}>{product.isActive ? '●' : '○'}</span>}
+            {visibleCols.has("category") && <span className="tree-p-category" title={categories.find(c => c.id === product.categoryId)?.name || ''}>{categories.find(c => c.id === product.categoryId)?.name || '—'}</span>}
             {visibleCols.has("description") && <span className="tree-p-desc" title={product.description}>{product.description || '—'}</span>}
             {visibleCols.has("imageUrl") && <span className="tree-p-img">{product.imageUrl ? '🖼️' : '—'}</span>}
             {visibleCols.has("createdAt") && <span className="tree-p-date">{formatDate(product.createdAt)}</span>}
@@ -728,6 +730,7 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                                                                             onToggle={() => toggleProduct(p.id)}
                                                                             onEdit={() => setEditingProduct(p)}
                                                                             visibleCols={visibleCols}
+                                                                            categories={categories}
                                                                         />
                                                                     ))}
                                                                 </div>
@@ -926,6 +929,7 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                 .tree-col-imageUrl { width: 50px; flex-shrink: 0; text-align: center; }
                 .tree-col-createdAt { width: 85px; flex-shrink: 0; }
                 .tree-col-updatedAt { width: 85px; flex-shrink: 0; }
+                .tree-col-category { width: 120px; flex-shrink: 0; }
                 .tree-col-edit { width: 30px; flex-shrink: 0; }
                 .tree-selectall { padding: 6px 8px; margin-bottom: 4px; }
                 .merch-checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #94a3b8; cursor: pointer; font-weight: 500; }
@@ -948,6 +952,7 @@ export default function MerchandisingClient({ categories, products }: Merchandis
                 .tree-p-desc { color: #475569; font-size: 11px; width: 150px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
                 .tree-p-img { width: 50px; flex-shrink: 0; text-align: center; font-size: 14px; }
                 .tree-p-date { color: #475569; font-size: 10px; width: 85px; flex-shrink: 0; font-family: monospace; }
+                .tree-p-category { color: #a78bfa; font-size: 11px; width: 120px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
                 .tree-empty { padding: 12px; text-align: center; color: #475569; font-size: 12px; }
 
                 /* ═══ EDIT PRODUCT MODAL ═══ */
