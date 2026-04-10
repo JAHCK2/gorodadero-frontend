@@ -16,7 +16,7 @@ export default function CarritoPage() {
     const totalItems = getItemCount();
 
     if (totalItems === 0) {
-        return <EmptyCart onContinueShopping={() => router.push("/")} />;
+        return <EmptyCart />;
     }
 
     const total = getTotal();

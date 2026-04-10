@@ -74,7 +74,7 @@ export default function CheckoutPage() {
     const total = getTotal();
 
     if (totalItems === 0) {
-        return <EmptyCart onContinueShopping={() => router.push("/")} />;
+        return <EmptyCart />;
     }
 
     if (total < MIN_ORDER_DELIVERY) {

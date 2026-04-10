@@ -1,4 +1,4 @@
-import { CartItem } from "@/store/cartStore";
+import type { CartItem } from "@/types/product";
 import { formatCOP } from "@/lib/money";
 
 interface OrderData {
