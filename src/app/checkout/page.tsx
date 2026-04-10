@@ -111,10 +111,35 @@ export default function CheckoutPage() {
 
     const handleFinish = () => {
         let finalBill = parseInt(billAmount.replace(/\D/g, '')) || total;
+        const paymentFinal = paymentCategory === 'efectivo' ? 'efectivo' : digitalMethod;
         const link = generateWhatsAppLink(
-            { clientName: name, phone, address, lat, lng, paymentMethod: paymentCategory === 'efectivo' ? 'efectivo' : digitalMethod as any, billAmount: finalBill },
+            { clientName: name, phone, address, lat, lng, paymentMethod: paymentFinal as any, billAmount: finalBill },
             items, total
         );
+
+        // FASE FIRE-AND-FORGET: Notificación en background al correo de jahck2
+        const now = new Date();
+        const orderNum = '#' + (now.getMonth() + 1).toString().padStart(2, '0') +
+            now.getDate().toString().padStart(2, '0') +
+            now.getHours().toString().padStart(2, '0') +
+            now.getMinutes().toString().padStart(2, '0');
+
+        fetch('/api/send-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                clientName: name,
+                orderNum,
+                phone,
+                address,
+                lat,
+                lng,
+                paymentMethod: paymentFinal,
+                items,
+                total
+            })
+        }).catch(err => console.warn('Error disparando notificacion de pedido:', err));
+
         window.open(link, '_blank');
         clearCart();
         router.replace("/");
