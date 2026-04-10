@@ -136,32 +136,32 @@ export async function POST(request: Request) {
                     </tr>
                 </table>
 
-                ${phone ? \`
+                ${phone ? `
                 <!-- ═══════ BOTÓN: WHATSAPP ═══════ -->
                 <table style="width:100%;border-collapse:collapse;margin-bottom:6px">
                     <tr>
                         <td style="text-align:center;padding:0">
-                            <a href="https://wa.me/57\${phone.replace(/[^0-9]/g,'')}"
+                            <a href="https://wa.me/57${phone.replace(/[^0-9]/g,'')}"
                                style="display:block;background:#25D366;color:#fff;text-decoration:none;padding:13px 24px;border-radius:14px;font-weight:700;font-size:0.92em;text-align:center">
                                 💬 Contactar Cliente por WhatsApp
                             </a>
                         </td>
                     </tr>
                 </table>
-                \` : ''}
+                ` : ''}
             </div>
 
             <!-- ═══════ FOOTER ═══════ -->
             <div style="padding:18px;text-align:center;border-top:1px solid rgba(255,255,255,0.04)">
                 <p style="margin:0;color:#444;font-size:0.72em;letter-spacing:0.3px">GoRodadero V2 — Mercado Rápido 🏖️</p>
             </div>
-        </div>\`;
+        </div>`;
 
         // ==================== ENVIAR ====================
         await transporter.sendMail({
-            from: \`"GoRodadero Pedidos 🛵" <\${smtpUser}>\`,
+            from: `"GoRodadero Pedidos 🛵" <${smtpUser}>`,
             to: 'jahck2@gmail.com',  // Email estricto indicado por el cliente
-            subject: \`🛍️ Nuevo Pedido \${orderNum} — \${clientName} (\$\${parseInt(total).toLocaleString('es-CO')})\`,
+            subject: `🛍️ Nuevo Pedido ${orderNum} — ${clientName} ($${parseInt(total).toLocaleString('es-CO')})`,
             html: html
         });
 
