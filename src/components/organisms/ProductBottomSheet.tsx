@@ -55,12 +55,25 @@ export function ProductBottomSheet({
             
             // Push history state to intercept Android Back button
             window.history.pushState({ productSheetOpen: true }, "");
+            
             const handlePopState = () => {
                 setIsVisible(false);
                 setTimeout(onClose, 300);
             };
+            
+            const handleKeyDown = (e: KeyboardEvent) => {
+                if (e.key === 'Escape') {
+                    window.history.back();
+                }
+            };
+
             window.addEventListener("popstate", handlePopState);
-            return () => window.removeEventListener("popstate", handlePopState);
+            window.addEventListener("keydown", handleKeyDown);
+            
+            return () => {
+                window.removeEventListener("popstate", handlePopState);
+                window.removeEventListener("keydown", handleKeyDown);
+            }
         } else {
             setIsVisible(false);
         }
