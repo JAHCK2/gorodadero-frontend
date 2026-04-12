@@ -9,7 +9,7 @@ import { CartItemList } from "@/components/cart/CartItemList";
 import { EmptyCart } from "@/components/cart/EmptyCart";
 import { formatCOP } from "@/lib/money";
 import { MIN_ORDER_DELIVERY } from "@/lib/constants";
-import { ArrowLeft, RotateCcw, X } from "lucide-react";
+import { ArrowLeft, RotateCcw, X, History } from "lucide-react";
 
 export default function CarritoPage() {
     const router = useRouter();
@@ -48,9 +48,10 @@ export default function CarritoPage() {
                     {history.length > 0 && (
                         <button 
                             onClick={() => setShowHistory(true)}
-                            className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-50 text-orange-500 border border-orange-100 hover:bg-orange-100 active:scale-95 transition-all shadow-sm"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-50 text-orange-600 border border-orange-100 hover:bg-orange-100 active:scale-95 transition-all shadow-sm"
                         >
-                            <RotateCcw className="w-[18px] h-[18px]" strokeWidth={2.5} />
+                            <History className="w-[14px] h-[14px]" strokeWidth={2.5} />
+                            <span className="text-[11px] font-extrabold uppercase tracking-tight">Historial</span>
                         </button>
                     )}
                 </header>
