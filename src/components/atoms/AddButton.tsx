@@ -48,7 +48,7 @@ export function AddButton({ onClick, className = "", quantityInCart = 0 }: AddBu
             )}
 
             {/* Persistent Cart Quantity Badge */}
-            {isAdded && quantityInCart > 1 && (
+            {isAdded && quantityInCart >= 1 && (
                 <span 
                     key={quantityInCart} // Force bubble re-animation exactly when quantity updates
                     className="absolute -top-1.5 -right-1.5 bg-orange-500 border border-white text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center animate-in zoom-in-50 slide-in-from-bottom-2 duration-200 shadow-sm"
