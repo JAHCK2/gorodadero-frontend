@@ -1,6 +1,9 @@
+"use client";
+
 import Image from "next/image";
 import { ProductBadge, ProductPrice, AddButton, GoLogo } from "@/components/atoms";
 import { Product } from "@/types/product";
+import { useCartStore } from "@/store/cartStore";
 
 export interface ProductCardProps {
     product: Product;
@@ -9,6 +12,10 @@ export interface ProductCardProps {
 }
 
 export function ProductCard({ product, onTap, onAdd }: ProductCardProps) {
+    const quantityInCart = useCartStore((state) => 
+        state.items.find(i => i.product.id === product.id)?.quantity || 0
+    );
+
     return (
         <div
             onClick={() => onTap?.(product)}
@@ -39,7 +46,10 @@ export function ProductCard({ product, onTap, onAdd }: ProductCardProps) {
                 
                 {/* Floating Add Button Top Right exactly on the edge */}
                 <div className="absolute top-1 right-1 z-10">
-                    <AddButton onClick={(e) => { e.stopPropagation(); onAdd?.(product); }} />
+                    <AddButton 
+                        quantityInCart={quantityInCart}
+                        onClick={(e) => { e.stopPropagation(); onAdd?.(product); }} 
+                    />
                 </div>
 
                 {/* Removed Floating Unit Badge Bottom Left */}
