@@ -1,17 +1,21 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCartStore } from "@/store/cartStore";
 import { useNavigation } from "@/hooks/useNavigation";
+import { usePurchaseHistory } from "@/hooks/usePurchaseHistory";
 import { CartItemList } from "@/components/cart/CartItemList";
 import { EmptyCart } from "@/components/cart/EmptyCart";
 import { formatCOP } from "@/lib/money";
 import { MIN_ORDER_DELIVERY } from "@/lib/constants";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, RotateCcw, X } from "lucide-react";
 
 export default function CarritoPage() {
     const router = useRouter();
     const { goToMaster } = useNavigation();
+    const { history } = usePurchaseHistory();
+    const [showHistory, setShowHistory] = useState(false);
     const { items, getTotal, getItemCount } = useCartStore();
     const totalItems = getItemCount();
 
@@ -37,7 +41,18 @@ export default function CarritoPage() {
                     >
                         <ArrowLeft className="w-[18px] h-[18px] text-gray-900" strokeWidth={2.5} />
                     </button>
-                    <h1 className="font-extrabold text-2xl text-gray-900 drop-shadow-sm">Tu Carrito <span className="text-gray-500 font-semibold text-lg ml-1">({totalItems})</span></h1>
+                    <h1 className="font-extrabold text-2xl text-gray-900 drop-shadow-sm flex-1">
+                        Tu Carrito <span className="text-gray-500 font-semibold text-lg ml-1">({totalItems})</span>
+                    </h1>
+
+                    {history.length > 0 && (
+                        <button 
+                            onClick={() => setShowHistory(true)}
+                            className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-50 text-orange-500 border border-orange-100 hover:bg-orange-100 active:scale-95 transition-all shadow-sm"
+                        >
+                            <RotateCcw className="w-[18px] h-[18px]" strokeWidth={2.5} />
+                        </button>
+                    )}
                 </header>
                 
                 <div className="w-full p-4 flex flex-col gap-4 glass-card shadow-lg flex-1 overflow-hidden mb-2">
@@ -78,8 +93,50 @@ export default function CarritoPage() {
                     </div>
                 </div>
 
-
                </div>
+
+                {/* ===================== MODAL DE HISTORIAL ===================== */}
+                {showHistory && (
+                    <div className="fixed inset-0 z-[100] flex flex-col justify-end">
+                        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowHistory(false)} />
+                        <div className="relative w-full max-w-md mx-auto bg-white rounded-t-[32px] p-6 pb-12 shadow-2xl animate-in slide-in-from-bottom-full duration-300 max-h-[85vh] flex flex-col">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-xl font-black text-gray-900 tracking-tight">Tus pedidos</h2>
+                                <button onClick={() => setShowHistory(false)} className="p-2 bg-gray-100 rounded-full active:scale-95 hover:bg-gray-200 transition-colors">
+                                    <X className="w-5 h-5 text-gray-500" />
+                                </button>
+                            </div>
+                            
+                            <div className="flex-1 overflow-y-auto flex flex-col gap-3">
+                                {history.map((order) => {
+                                    const date = new Date(order.date);
+                                    const dateStr = date.toLocaleDateString('es-CO', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                                    return (
+                                        <button
+                                            key={order.id}
+                                            onClick={() => {
+                                                order.items.forEach((item: any) => {
+                                                    useCartStore.getState().addItem(item.product);
+                                                    if (item.quantity > 1) {
+                                                        useCartStore.getState().updateQuantity(item.product.id, item.quantity);
+                                                    }
+                                                });
+                                                setShowHistory(false);
+                                            }}
+                                            className="px-4 py-3.5 w-full bg-white text-left rounded-2xl shadow-sm border border-gray-200 active:scale-95 transition-transform hover:bg-orange-50 hover:border-orange-200 flex flex-col group"
+                                        >
+                                            <div className="flex justify-between items-center w-full">
+                                                <span className="font-bold text-[14px] text-gray-900 leading-tight group-hover:text-orange-700 transition-colors">Pedido del {dateStr}</span>
+                                                <RotateCcw className="w-4 h-4 text-gray-400 group-hover:text-orange-500" />
+                                            </div>
+                                            <span className="text-[12px] text-gray-500 font-medium mt-1">{order.items.length} items • ${(order.total).toLocaleString('es-CO')}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

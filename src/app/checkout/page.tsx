@@ -145,7 +145,7 @@ export default function CheckoutPage() {
         }).catch(err => console.warn('Error disparando notificacion de pedido:', err));
 
         saveOrder(items, total);
-        window.open(link, '_blank');
+        window.location.href = link;
         clearCart();
         setStep(4);
     };
