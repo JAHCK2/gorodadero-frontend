@@ -13,7 +13,8 @@
 ## 3. Advanced Mobile UX (Search & Interaction)
 - **Smart Search Overlay:** Buscador full-screen nativo. Cuenta con aceleración de GPU (`touch-pan-y`), limitadores de rebase de scroll (`overscroll-contain`) y el mecanismo **"Keyboard Dismiss on Drag"** (`onTouchMove -> blur()`), el cual cierra inteligentemente el teclado sin paralizar el deslizamiento del usuario en listas densas.
 - **Direct Add Micro-interactions:** Permite agregar productos directamente desde los resultados de búsqueda interceptando la cascada de DOM (`e.stopPropagation()`), confirmando la acción (✅) vía animación sin necesidad de cerrar el modal del buscador para compras en ráfaga.
-
+- **Persistent Cart Memory:** El botón de agregar (`AddButton.tsx`) está acoplado al estado global del carrito (`useCartStore`). Si la cantidad de un ítem es `>= 1`, se vuelve verde persistentemente y muestra una burbuja naranja de cantidad (incluso a través de recargas o cambios de pasillo). La inyección visual de `bump` solo ocurre al mutar positivamente el estado global.
+- **Escape Key Interception:** Modales inyectados por History API (como el `ProductBottomSheet.tsx`) mapean la tecla `Escape` exclusivamente a `window.history.back()`, manteniendo limpia la pila de navegación temporal de Android.
 ## 4. Checkout & Order Flow (Completed)
 - **Validation Pipeline:** Recolección progresiva estricta en 4 Pasos (Datos de cliente, Selección de Pago, Resumen Final y Éxito Absoluto).
 - **Quick Commerce History:** Implementación de `usePurchaseHistory` persistente en `localStorage`. Al completar la orden se guarda temporalmente el historial y se purga el carrito (`cartStore`), obligándonos a bypassear las validaciones iniciales de carrito vacío en el Paso 4.
