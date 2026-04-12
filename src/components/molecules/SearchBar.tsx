@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Search, Truck, X, ArrowLeft, Check } from "lucide-react";
+import { Search, Truck, X, ArrowLeft, Check, Clock } from "lucide-react";
 import Image from "next/image";
 import { createPortal } from "react-dom";
 import { useCartStore } from "@/store/cartStore";
@@ -20,6 +20,7 @@ import { useCartStore } from "@/store/cartStore";
    ══════════════════════════════════════════════════════════════════════════ */
 
 import { smartSearch, SearchProduct } from "@/lib/searchEngine";
+import { usePurchaseHistory } from "@/hooks/usePurchaseHistory";
 
 interface SearchBarProps {
     products?: SearchProduct[];
@@ -42,6 +43,7 @@ export function SearchBar({ products = [], onActiveChange, compact = false, comp
     const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
     const inputRef = useRef<HTMLInputElement>(null);
     const addItem = useCartStore((s) => s.addItem);
+    const { getRecentProducts } = usePurchaseHistory();
 
     const handleDirectAdd = useCallback((product: SearchProduct) => {
         addItem(product as any);
@@ -250,12 +252,45 @@ export function SearchBar({ products = [], onActiveChange, compact = false, comp
                             )
                         ) : (
                             /* Empty state — Prompt */
-                            <div className="flex flex-col items-center justify-center pt-20">
+                            <div className="flex flex-col items-center justify-center pt-10">
                                 <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mb-4">
                                     <Search className="w-7 h-7 text-white/20" />
                                 </div>
                                 <p className="text-sm font-medium text-white/40">Busca entre {(products?.length || 0).toLocaleString("es-CO")} productos</p>
-                                <p className="text-xs text-white/25 mt-1">Escribe el nombre del producto</p>
+                                <p className="text-xs text-white/25 mt-1 mb-8">Escribe el nombre del producto</p>
+
+                                {getRecentProducts().length > 0 && !compact && (
+                                    <div className="w-full max-w-sm flex flex-col items-center animate-fadeIn opacity-80 mt-4">
+                                        <div className="flex items-center gap-1.5 justify-center mb-5 text-white/50">
+                                            <Clock className="w-3.5 h-3.5" />
+                                            <span className="text-xs font-bold uppercase tracking-wider">Comprados recientemente</span>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2 w-full px-4">
+                                            {getRecentProducts(4).map(product => (
+                                                <button
+                                                    key={product.id}
+                                                    onClick={() => {
+                                                        if (onProductSelect) {
+                                                            onProductSelect(product as any);
+                                                        } else {
+                                                            addItem(product as any);
+                                                        }
+                                                        handleBackClick();
+                                                    }}
+                                                    className="p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 active:scale-95 transition-all text-left flex items-center gap-2.5"
+                                                >
+                                                    <div className="w-8 h-8 shrink-0 bg-white/10 rounded-lg flex items-center justify-center overflow-hidden">
+                                                        {product.imageUrl && <img src={product.imageUrl} alt="" className="w-full h-full object-contain mix-blend-screen" />}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0 pr-1">
+                                                        <p className="text-[11px] font-bold text-white/90 truncate leading-tight mb-0.5">{product.name}</p>
+                                                        <p className="text-[9px] font-medium text-emerald-400">${Number(product.sellPrice).toLocaleString("es-CO")}</p>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

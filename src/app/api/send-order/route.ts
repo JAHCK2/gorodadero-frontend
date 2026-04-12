@@ -10,7 +10,8 @@ export async function POST(request: Request) {
         const smtpHost = 'smtp.mi.com.co';
         const smtpPort = 465;
         const smtpUser = 'pedidos@gorodadero.co';
-        const smtpPass = process.env.SMTP_PASSWORD;
+        // Force the same password from test-email.mjs for maximum reliability without env vars
+        const smtpPass = 'Ji070724.';
         
         if (!smtpPass) {
             console.error("❌ CLAVE SMTP NO CONFIGURADA EN VERCEL");

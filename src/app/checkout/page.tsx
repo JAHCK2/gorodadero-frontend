@@ -3,19 +3,23 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useCartStore } from "@/store/cartStore";
+import { usePurchaseHistory } from "@/hooks/usePurchaseHistory";
+import { useNavigation } from "@/hooks/useNavigation";
 import { MIN_ORDER_DELIVERY } from "@/lib/constants";
 import { generateWhatsAppLink } from "@/lib/whatsapp";
 import { ArrowLeft, MapPin, Navigation, Banknote, Smartphone, CheckCircle2, ChevronRight, Edit2, ShoppingBag, Copy, Check, Download } from "lucide-react";
 import { formatCOP } from "@/lib/money";
 import { EmptyCart } from "@/components/cart/EmptyCart";
 
-type CheckoutStep = 1 | 2 | 3;
+type CheckoutStep = 1 | 2 | 3 | 4;
 type PaymentCategory = 'efectivo' | 'transferencia';
 type DigitalMethod = 'nequi' | 'breb' | 'qr' | 'datafono' | '';
 
 export default function CheckoutPage() {
     const router = useRouter();
     const { items, getTotal, getItemCount, clearCart } = useCartStore();
+    const { saveOrder } = usePurchaseHistory();
+    const { goHome } = useNavigation();
     const [mounted, setMounted] = useState(false);
     const phoneRef = useRef<HTMLInputElement>(null);
     const addressRef = useRef<HTMLInputElement>(null);
@@ -73,11 +77,11 @@ export default function CheckoutPage() {
     const totalItems = getItemCount();
     const total = getTotal();
 
-    if (totalItems === 0) {
+    if (totalItems === 0 && step !== 4) {
         return <EmptyCart />;
     }
 
-    if (total < MIN_ORDER_DELIVERY) {
+    if (total < MIN_ORDER_DELIVERY && step !== 4) {
         router.replace("/carrito");
         return null;
     }
@@ -140,9 +144,10 @@ export default function CheckoutPage() {
             })
         }).catch(err => console.warn('Error disparando notificacion de pedido:', err));
 
+        saveOrder(items, total);
         window.open(link, '_blank');
         clearCart();
-        router.replace("/");
+        setStep(4);
     };
 
     // Step validation for bottom bar
@@ -478,12 +483,35 @@ export default function CheckoutPage() {
                             </button>
                         </div>
                     )}
+
+                    {/* ================= STEP 4: SUCCESS ================= */}
+                    {step === 4 && (
+                        <div className="flex flex-col items-center justify-center pt-8 pb-4 text-center animate-in fade-in zoom-in duration-500">
+                            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                                <CheckCircle2 className="w-10 h-10 text-emerald-500" strokeWidth={2.5} />
+                            </div>
+                            <h2 className="text-2xl font-black text-gray-900 mb-2 tracking-tight">¡Pedido Listo!</h2>
+                            <p className="text-[14px] text-gray-500 mb-8 max-w-[280px] leading-relaxed">
+                                Tu pedido fue preparado. Regresa a nuestra aplicación tras confirmar tu WhatsApp.
+                            </p>
+                            <button 
+                                onClick={() => {
+                                    goHome();
+                                    router.replace("/");
+                                }}
+                                className="px-8 py-3.5 w-full bg-[#F97316] text-white font-black text-[15px] rounded-2xl shadow-[0_8px_20px_rgba(249,115,22,0.3)] active:scale-95 transition-transform hover:bg-[#EA580C]"
+                            >
+                                Volver al Inicio
+                            </button>
+                        </div>
+                    )}
                 </main>
             </div>
 
             {/* ============ BARRA INFERIOR FIJA (TODOS LOS PASOS) ============ */}
-            <div className="w-full max-w-md" style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', zIndex: 60 }}>
-                <div className="bg-white/95 backdrop-blur-2xl border-t border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] px-4 pt-3" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 12px), 12px)' }}>
+            {step < 4 && (
+                <div className="w-full max-w-md" style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', zIndex: 60 }}>
+                    <div className="bg-white/95 backdrop-blur-2xl border-t border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] px-4 pt-3" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 12px), 12px)' }}>
                     
                     {/* Total + Button Row */}
                     <div className="flex items-center gap-3">
@@ -526,7 +554,8 @@ export default function CheckoutPage() {
                         </button>
                     </div>
                 </div>
-            </div>
+                </div>
+            )}
         </div>
     );
 }

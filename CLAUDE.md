@@ -15,6 +15,7 @@
 - **Direct Add Micro-interactions:** Permite agregar productos directamente desde los resultados de búsqueda interceptando la cascada de DOM (`e.stopPropagation()`), confirmando la acción (✅) vía animación sin necesidad de cerrar el modal del buscador para compras en ráfaga.
 
 ## 4. Checkout & Order Flow (Completed)
-- **Validation Pipeline:** Recolección progresiva estricta en 3 Pasos (Datos de cliente, Selección de Pago, Resumen Final).
-- **Geolocation API:** Integra lógica transaccional de posicionamiento para la obtención asíncrona de Barrios basada en Polígonos de Santa Marta y el consecuente Cálculo de Envío Variable.
-- **WhatsApp String Generation:** Enrutamiento de URL estática cifrada que procesa Ticket de supermercado, Totalización, Delivery y el Link Geográfico de trazabilidad (Google Maps) directo hacia el Dispatch central del comercio.
+- **Validation Pipeline:** Recolección progresiva estricta en 4 Pasos (Datos de cliente, Selección de Pago, Resumen Final y Éxito Absoluto).
+- **Quick Commerce History:** Implementación de `usePurchaseHistory` persistente en `localStorage`. Al completar la orden se guarda temporalmente el historial y se purga el carrito (`cartStore`), obligándonos a bypassear las validaciones iniciales de carrito vacío en el Paso 4.
+- **WhatsApp String Generation:** Enrutamiento de URL estática. Utiliza codificación universal de secuencias *UTF-16 Escapes* (`\uD83D...`)  estrictamente en todo el payload de emojis (`whatsapp.ts`) para evitar corrupciones de Charset ("diamantes con signos de interrogación") comunes en builds del sistema operativo.
+- **Micro-Backend API:** Ruta API asíncrona interna `/api/send-order` para emails vía SMTP (`nodemailer`). Se prefiere contraseñas quemadas (`hardcoded`) o inyectadas vía variables de entorno robustas debido al encapsulamiento y el aislamiento de Vercel/Netlify. Tolerancia de fallos: la UI *siempre* despacha en Fire-And-Forget para no bloquear la redirección principal en WhatsApp.

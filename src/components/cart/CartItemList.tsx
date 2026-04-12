@@ -27,9 +27,9 @@ export function CartItemList() {
                 </h2>
                 <button
                     onClick={() => setShowClearConfirm(true)}
-                    className="flex items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-red-500 active:scale-95 transition-all py-1 px-2 rounded-lg"
+                    className="flex items-center gap-1.5 text-[12px] font-bold text-red-500 bg-red-50 border border-red-100 hover:bg-red-100 active:scale-95 transition-all py-1.5 px-3 rounded-xl shadow-sm"
                 >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-3.5 h-3.5" strokeWidth={2.5} />
                     Vaciar
                 </button>
             </div>
