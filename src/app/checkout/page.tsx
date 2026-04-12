@@ -154,7 +154,7 @@ export default function CheckoutPage() {
     const step1Valid = name.trim().length > 0 && phone.replace(/\D/g, '').length >= 10 && address.trim().length > 0 && !!lat && !!lng;
 
     // Bottom bar config per step
-    const bottomBarConfig = {
+    const bottomBarConfig: Record<CheckoutStep, { label: string, disabled: boolean, action: () => void }> = {
         1: { label: 'Continuar a Pago', disabled: !step1Valid, action: handleNextStep1 },
         2: { 
             label: billTooLow ? 'Monto insuficiente' : 
@@ -165,6 +165,7 @@ export default function CheckoutPage() {
             action: handleNextStep3 
         },
         3: { label: 'Enviar por WhatsApp', disabled: false, action: handleFinish },
+        4: { label: '', disabled: true, action: () => {} }
     };
 
     const bar = bottomBarConfig[step];
