@@ -3,6 +3,8 @@ import { MapPin, ChevronRight, Truck } from "lucide-react";
 import { GoLogoFull } from "@/components/atoms";
 import { SearchBar } from "@/components/molecules";
 import { Product } from "@/types/product";
+import { useRouter } from "next/navigation";
+import { useRef } from "react";
 
 interface HomeHeroProps {
     onCategoriesClick?: () => void;
@@ -14,6 +16,22 @@ interface HomeHeroProps {
 }
 
 export function HomeHero({ onCategoriesClick, onPromoClick, products, isSearchActive = false, onSearchActiveChange, onProductSelect }: HomeHeroProps) {
+    const router = useRouter();
+    const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const clickCountRef = useRef(0);
+
+    const handleLogoClick = () => {
+        clickCountRef.current += 1;
+        if (clickCountRef.current >= 3) {
+            router.push('/admin');
+            clickCountRef.current = 0;
+        }
+        if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
+        clickTimeoutRef.current = setTimeout(() => {
+            clickCountRef.current = 0;
+        }, 1000);
+    };
+
     const PROMO_BANNERS = [
         { slug: "cervezas", label: "Cervezas", image: "/images/cat-cervezas.webp" },
         { slug: "gaseosas", label: "Gaseosas", image: "/images/cat-gaseosas.webp" },
@@ -44,10 +62,10 @@ export function HomeHero({ onCategoriesClick, onPromoClick, products, isSearchAc
 
                     {/* Centered logo */}
                     <div className="flex flex-col items-center text-center mb-5">
-                        <div className="relative">
+                        <button onClick={handleLogoClick} className="relative outline-none active:scale-95 transition-transform">
                             <div className="absolute inset-0 scale-[1.8] bg-white/10 rounded-full blur-[40px] pointer-events-none" />
                             <GoLogoFull className="relative w-48 h-auto drop-shadow-[0_6px_32px_rgba(0,0,0,0.35)]" />
-                        </div>
+                        </button>
                     </div>
 
                     {/* Slogan */}
