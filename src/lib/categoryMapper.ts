@@ -1,84 +1,26 @@
 import { Category } from "@/types/product";
 
 export const CATEGORY_HIERARCHY: Record<string, string[]> = {
-  "Bebidas": [
-    "Aguas",
-    "Energizantes e Hidratantes",
-    "Gaseosas y Maltas",
-    "Hidrantes y Energizantes",
-    "Jugos y Néctares"
-  ],
-  "Carnes y Charcutería": [
-    "Carnes Rojas",
-    "Embutidos y Salchichería",
-    "Pollo"
-  ],
-  "Cuidado Personal": [
-    "Cuidado Capilar",
-    "Desodorantes",
-    "Higiene Corporal",
-    "Higiene Oral"
-  ],
-  "Despensa": [
-    "Aceites",
-    "Alimento Infantil",
-    "Arroz y Cereal",
-    "Canasta Básica",
-    "Enlatados",
-    "Harinas",
-    "Panadería",
-    "Panadería y Desayuno",
-    "Salsas y Sazonadores"
-  ],
-  "Dulces y Galletas": [
-    "Chocolatería",
-    "Dulcería",
-    "Galletas"
-  ],
-  "Farmacia y Bebé": [
-    "Analgésicos y Primeros Auxilios",
-    "Cuidado Infantil y Pañales"
-  ],
-  "Frutas y Verduras": [
-    "Frutas",
-    "Verduras",
-    "Verduras y Hortalizas"
-  ],
-  "Hogar y Limpieza": [
-    "Lavandería",
-    "Limpieza de Superficies",
-    "Papel Higiénico y Cocina",
-    "Utensilios",
-    "Utensilios y Desechables"
-  ],
-  "Licores y Tabaco": [
-    "Cervezas",
-    "Cigarrillos y Vapeo",
-    "Licores y Vinos",
-    "Whisky"
-  ],
-  "Lácteos y Huevos": [
-    "Bebidas Lácteas",
-    "Huevos y Mantequillas",
-    "Leche",
-    "Quesos y Cremas"
-  ],
-  "Mascotas": [
-    "Alimento Gato",
-    "Alimento Perro"
-  ],
-  "Misceláneos": [
-    "Papelería",
-    "Varios"
-  ],
-  "Snacks y Pasabocas": [
-    "Nueces y Tostadas",
-    "Papas y Fritos"
-  ],
+  "🥫 DESPENSA": ["Huevos", "Aceites y Vinagres", "Café y Chocolate", "Encurtidos y Conservas", "Salsas de Mesa", "Bebidas en Polvo", "Arroz y Granos", "Infusiones y Té", "Harinas", "Leche en Polvo"],
+  "🍎 FRUTAS Y VERDURAS": ["Verduras"],
+  "🥩 CARNES": ["Pollo", "Cerdo"],
+  "🧀 LÁCTEOS Y REFRIGERADOS": ["Leches", "Arepas y Tortillas", "Quesos y Sueros", "Carnes Frías y Embutidos"],
+  "🥓 DELICATESSEN": ["Charcutería Fina", "Quesos Maduros"],
+  "🍪 PASABOCAS Y DULCES": ["Galletas Saladas", "Papas y Snacks", "Galletas Dulces"],
+  "🧃 BEBIDAS": ["Jugos y Refrescos", "Gaseosas y Maltas", "Bebidas Energizantes e Hidratantes", "Agua y Té Frío"],
+  "🥐 PANADERÍA": ["Panadería de la Casa"],
+  "🍷 VINOS Y LICORES": ["Cremas y Aperitivos", "Cigarrillos y Tabacos", "Aguardiente", "Vodka", "Cervezas", "Ron", "Tequila", "Whisky"],
+  "🧴 CUIDADO PERSONAL": ["Higiene Femenina", "Shampoo y Acondicionador", "Papel Higiénico", "Cuidado Oral", "Desodorantes Masculinos"],
+  "☀️ CUIDADO DE LA PIEL": ["Protectores Solares", "Cremas"],
+  "💊 BOTIQUÍN": ["Analgésicos y Antigripales", "Multivitamínicos"],
+  "🍼 MUNDO DEL BEBÉ": ["Coladas y Papillas", "Cuidado de la Colita", "Compotas"],
+  "🧹 ASEO HOGAR": ["Limpieza Superficies", "Cuidado Baño", "Suavizantes", "Esponjas y Fibras", "Blanqueadores", "Detergentes", "Ambientadores", "Desechables", "Insecticidas"],
+  "🐕 MASCOTAS": ["Perros", "Gatos"],
+  "📦 MISCELÁNEOS": ["Varios"]
 };
 
 function generateSlug(text: string): string {
-    return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/^-+|-+$/g, '');
 }
 
 /** 

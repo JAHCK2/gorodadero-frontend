@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
+import { supabase } from '@/lib/supabase';
 
 export async function POST(request: Request) {
     try {
@@ -158,7 +159,24 @@ export async function POST(request: Request) {
             </div>
         </div>`;
 
-        // ==================== ENVIAR ====================
+        // ==================== GUARDAR EN BASE DE DATOS ====================
+        const { error: dbError } = await supabase.from('pedidos').insert([{
+            order_num: orderNum,
+            client_name: clientName,
+            phone: phone || '',
+            address: address || '',
+            lat: lat || '',
+            lng: lng || '',
+            payment_method: paymentMethod,
+            items: items,
+            total: parseInt(total) || 0
+        }]);
+
+        if (dbError) {
+            console.error("❌ Error guardando pedido en Supabase:", dbError.message);
+        }
+
+        // ==================== ENVIAR CORREO ====================
         await transporter.sendMail({
             from: `"GoRodadero Pedidos 🛵" <${smtpUser}>`,
             to: 'jahck2@gmail.com',  // Email estricto indicado por el cliente
