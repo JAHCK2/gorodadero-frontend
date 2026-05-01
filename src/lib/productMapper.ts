@@ -23,10 +23,16 @@ export function mapSupabaseToProduct(item: any, marginMultiplier: number = 1.40)
     let imageUrl = null;
     const barcode = item.barcode?.trim();
 
-    // 1. Apuntar directamente al CDN de Chucho V2 basado en el código de barras
-    // PERO solo si la imagen ya fue asignada/aprobada en la base de datos (no está vacía ni rechazada)
-    if (barcode && item.imagen && item.imagen !== 'RECHAZADA_TODAS' && item.imagen !== 'NO_IMAGE') {
-        imageUrl = `https://chucho-v2.vercel.app/product-images/${barcode}.png`;
+    // 1. Apuntar directamente al CDN de Chucho V2 usando el nombre exacto de la base de datos
+    // Esto previene errores 404 causados por asumir que todas las imágenes son .png
+    if (item.imagen && item.imagen !== 'RECHAZADA_TODAS' && item.imagen !== 'NO_IMAGE') {
+        if (item.imagen.startsWith('http')) {
+            imageUrl = item.imagen;
+        } else if (item.imagen.startsWith('/')) {
+            imageUrl = `https://chucho-v2.vercel.app${item.imagen}`;
+        } else {
+            imageUrl = `https://chucho-v2.vercel.app/${item.imagen}`;
+        }
     }
 
     // Extraer unidad y valor de la base de datos o usando RegEx desde el nombre
