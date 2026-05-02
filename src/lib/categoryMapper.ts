@@ -1,20 +1,20 @@
 import { Category } from "@/types/product";
 
 export const CATEGORY_HIERARCHY: Record<string, string[]> = {
-  "🥫 DESPENSA": ["Huevos", "Aceites y Vinagres", "Café y Chocolate", "Encurtidos y Conservas", "Salsas de Mesa", "Bebidas en Polvo", "Arroz y Granos", "Infusiones y Té", "Harinas", "Leche en Polvo"],
+  "🥫 DESPENSA": ["Huevos", "Aceites y Vinagres", "Café y Chocolate", "Encurtidos y Conservas", "Salsas de Mesa", "Bebidas en Polvo", "Arroz y Granos", "Infusiones y Té", "Harinas", "Leche en Polvo", "Repostería"],
   "🍎 FRUTAS Y VERDURAS": ["Verduras"],
   "🥩 CARNES": ["Pollo", "Cerdo"],
-  "🧀 LÁCTEOS Y REFRIGERADOS": ["Leches", "Arepas y Tortillas", "Quesos y Sueros", "Carnes Frías y Embutidos"],
+  "🧀 LÁCTEOS Y REFRIGERADOS": ["Leches", "Arepas y Tortillas", "Quesos y Sueros", "Carnes Frías y Embutidos", "Mantequillas y Margarinas"],
   "🥓 DELICATESSEN": ["Charcutería Fina", "Quesos Maduros"],
   "🍪 PASABOCAS Y DULCES": ["Galletas Saladas", "Papas y Snacks", "Galletas Dulces"],
   "🧃 BEBIDAS": ["Jugos y Refrescos", "Gaseosas y Maltas", "Bebidas Energizantes e Hidratantes", "Agua y Té Frío"],
   "🥐 PANADERÍA": ["Panadería de la Casa"],
-  "🍷 VINOS Y LICORES": ["Cremas y Aperitivos", "Cigarrillos y Tabacos", "Aguardiente", "Vodka", "Cervezas", "Ron", "Tequila", "Whisky"],
-  "🧴 CUIDADO PERSONAL": ["Higiene Femenina", "Shampoo y Acondicionador", "Papel Higiénico", "Cuidado Oral", "Desodorantes Masculinos"],
+  "🍷 VINOS Y LICORES": ["Cocteles", "Vinos", "Cervezas", "Aguardiente", "Ron", "Whisky", "Vodka", "Tequila", "Cigarrillos y Tabacos"],
+  "🧴 CUIDADO PERSONAL": ["Higiene Femenina", "Shampoo y Acondicionador", "Cuidado del Cabello", "Papel Higiénico", "Cuidado Oral", "Desodorantes Masculinos", "Desodorantes Femeninos"],
   "☀️ CUIDADO DE LA PIEL": ["Protectores Solares", "Cremas"],
   "💊 BOTIQUÍN": ["Analgésicos y Antigripales", "Multivitamínicos"],
   "🍼 MUNDO DEL BEBÉ": ["Coladas y Papillas", "Cuidado de la Colita", "Compotas"],
-  "🧹 ASEO HOGAR": ["Limpieza Superficies", "Cuidado Baño", "Suavizantes", "Esponjas y Fibras", "Blanqueadores", "Detergentes", "Ambientadores", "Desechables", "Insecticidas"],
+  "🧹 ASEO HOGAR": ["Limpieza Superficies", "Limpia Pisos", "Cuidado Baño", "Suavizantes", "Esponjas y Fibras", "Blanqueadores", "Detergentes", "Ambientadores", "Desechables", "Insecticidas", "Papel Higiénico"],
   "🐕 MASCOTAS": ["Perros", "Gatos"],
   "📦 MISCELÁNEOS": ["Varios"]
 };
