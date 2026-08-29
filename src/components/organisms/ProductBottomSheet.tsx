@@ -541,8 +541,7 @@ export function ProductBottomSheet({
             {/* Lightbox / Pinch-to-zoom Modal */}
             {isZoomOpen && product.imageUrl && (
                 <ProductImageZoomModal 
-                    imageUrl={product.imageUrl}
-                    altText={product.name}
+                    product={product}
                     onClose={() => setIsZoomOpen(false)}
                 />
             )}
