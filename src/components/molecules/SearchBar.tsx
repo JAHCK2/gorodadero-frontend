@@ -183,55 +183,62 @@ export function SearchBar({ products = [], onActiveChange, compact = false, comp
                         {query.trim().length > 0 ? (
                             results.length > 0 ? (
                                 <div className="rounded-2xl overflow-hidden bg-white/[0.07] border border-white/10 backdrop-blur-xl">
-                                    {results.map((product, i) => {
+                                    {results.map((product) => {
                                         const quantityInCart = cartItems.find((item) => item.product.id === product.id)?.quantity || 0;
                                         return (
                                             <div
                                                 key={product.id}
-                                                role="button"
-                                                tabIndex={0}
-                                                className="flex items-center gap-3 w-full px-4 py-3.5 text-left active:bg-white/10 transition-colors border-b border-white/5 last:border-b-0 cursor-pointer"
-                                                onClick={() => {
-                                                    if (onProductSelect) {
-                                                        onProductSelect(product);
-                                                    } else {
-                                                        addItem(product as any);
-                                                    }
-                                                    handleBackClick();
-                                                }}
+                                                className="flex items-center gap-3 w-full px-4 py-3.5 border-b border-white/5 last:border-b-0 hover:bg-white/[0.04] transition-colors"
                                             >
-                                                {/* Product thumbnail */}
-                                                <div className="product-image-stage flex-shrink-0 w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center overflow-hidden">
-                                                    {product.imageUrl ? (
-                                                        <img
-                                                            src={product.imageUrl}
-                                                            alt=""
-                                                            loading="lazy"
-                                                            decoding="async"
-                                                            className="w-full h-full object-contain p-1"
-                                                        />
-                                                    ) : (
-                                                        <Search className="w-4 h-4 text-white/30" />
-                                                    )}
-                                                </div>
+                                                {/* Botón principal de selección del producto para abrir la ficha */}
+                                                <button
+                                                    type="button"
+                                                    className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer group active:opacity-75 transition-opacity bg-transparent border-0 p-0 outline-none"
+                                                    onClick={() => {
+                                                        if (typeof window !== "undefined" && window.history.state?.searchOpen) {
+                                                            window.history.replaceState(null, "");
+                                                        }
+                                                        closeSearch();
+                                                        if (onProductSelect) {
+                                                            onProductSelect(product);
+                                                        } else {
+                                                            addItem(product as any);
+                                                        }
+                                                    }}
+                                                >
+                                                    {/* Product thumbnail */}
+                                                    <div className="product-image-stage flex-shrink-0 w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center overflow-hidden">
+                                                        {product.imageUrl ? (
+                                                            <img
+                                                                src={product.imageUrl}
+                                                                alt=""
+                                                                loading="lazy"
+                                                                decoding="async"
+                                                                className="w-full h-full object-contain p-1"
+                                                            />
+                                                        ) : (
+                                                            <Search className="w-4 h-4 text-white/30" />
+                                                        )}
+                                                    </div>
 
-                                                {/* Product info */}
-                                                <div className="flex-1 min-w-0 pr-2">
-                                                    {product.brand && (
-                                                        <span className="text-[10px] font-black uppercase text-[#5eead4] tracking-wider truncate block leading-none mb-0.5">
-                                                            {product.brand}
-                                                        </span>
-                                                    )}
-                                                    <p className="text-sm font-semibold text-white truncate">
-                                                        {product.name}
-                                                    </p>
-                                                    <p className="text-xs text-white/70 mt-0.5 font-bold">
-                                                        ${product.sellPrice.toLocaleString("es-CO")}
-                                                    </p>
-                                                </div>
+                                                    {/* Product info */}
+                                                    <div className="flex-1 min-w-0 pr-2">
+                                                        {product.brand && (
+                                                            <span className="text-[10px] font-black uppercase text-[#5eead4] tracking-wider truncate block leading-none mb-0.5">
+                                                                {product.brand}
+                                                            </span>
+                                                        )}
+                                                        <p className="text-sm font-semibold text-white truncate">
+                                                            {product.name}
+                                                        </p>
+                                                        <p className="text-xs text-white/70 mt-0.5 font-bold">
+                                                            ${product.sellPrice.toLocaleString("es-CO")}
+                                                        </p>
+                                                    </div>
+                                                </button>
 
-                                                {/* Direct Add Button */}
-                                                <div className="flex-shrink-0 mr-1" onClick={(e) => e.stopPropagation()}>
+                                                {/* Direct Add Button — Botón hermano independiente sin anidación */}
+                                                <div className="flex-shrink-0 mr-1">
                                                     <AddButton 
                                                         quantityInCart={quantityInCart}
                                                         onClick={() => {

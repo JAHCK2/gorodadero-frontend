@@ -13,13 +13,30 @@ function parseCOPPrice(raw: string | number | null | undefined): number {
 }
 
 /**
+ * Genera un token de versión determinista a partir de la URL o extrae parámetros temporales existentes.
+ */
+function computeStableUrlVersion(urlStr: string): string {
+    const tMatch = urlStr.match(/[?&](?:t|ts|updated)=(\d+)/);
+    if (tMatch && tMatch[1]) {
+        return tMatch[1];
+    }
+
+    // Hash determinista del path para que URLs nuevas de Media V2 produzcan versiones únicas automáticas
+    let hash = 5381;
+    for (let i = 0; i < urlStr.length; i++) {
+        hash = ((hash << 5) + hash) ^ urlStr.charCodeAt(i);
+    }
+    return Math.abs(hash).toString(36).slice(0, 8);
+}
+
+/**
  * Resuelve la URL limpia de la imagen oficial del producto.
  * Prioridad:
  * 1. Campo `productos.imagen` si está configurado y no es un marcador de rechazo.
  * 2. Si es una URL completa (Supabase, Vercel, etc.), se utiliza directamente.
  * 3. Si apunta al patrón de storage `products/{id}/processed/{mediaId}.webp`, se construye la URL del bucket público `product-media-public`.
  * 4. Si es una ruta relativa local (`/product-images/...`, `/candidatos_pim/...`, etc.), se apunta al CDN de Chucho V2.
- * 5. Se anexa el parámetro de versión `?v=${updated_at || 'v1'}` para refresco instantáneo sin caché residual.
+ * 5. Se anexa el parámetro de versión `?v=${updated_at || version}` para refresco instantáneo sin caché residual.
  */
 export function resolveProductImageUrl(rawImage: string | null | undefined, productId: string, updatedAt?: string | null): string | null {
     if (!rawImage || rawImage === 'RECHAZADA_TODAS' || rawImage === 'NO_IMAGE' || rawImage.trim() === '') {
@@ -45,14 +62,17 @@ export function resolveProductImageUrl(rawImage: string | null | undefined, prod
         url = `https://chucho-v2.vercel.app/${url}`;
     }
 
-    // Anexar parámetro de versión para caché inteligente
-    const versionParam = updatedAt ? encodeURIComponent(updatedAt) : 'v1';
-    const separator = url.includes('?') ? '&' : '?';
-    
-    // Evitar duplicar ?v= si ya viene incluido
-    if (!url.includes('v=') && !url.startsWith('data:')) {
-        url = `${url}${separator}v=${versionParam}`;
+    // Evitar duplicar ?v= si ya viene incluido explícitamente en la URL
+    if (url.includes('v=') || url.startsWith('data:')) {
+        return url;
     }
+
+    // Anexar parámetro de versión inteligente:
+    // 1. updatedAt explícito de base de datos
+    // 2. Parámetro temporal (?t=) o hash determinista de la URL para que cualquier foto nueva de Media V2 cambie la versión
+    const versionParam = updatedAt ? encodeURIComponent(updatedAt) : computeStableUrlVersion(url);
+    const separator = url.includes('?') ? '&' : '?';
+    url = `${url}${separator}v=${versionParam}`;
 
     return url;
 }
@@ -67,8 +87,11 @@ export function mapSupabaseToProduct(item: any, marginMultiplier: number = 1.40)
     // Buscar subcategoría mapeada
     const catId = getSubcategoryId(rawCategoria, rawSubcategoria);
 
+    // Resolver timestamp de actualización
+    const updatedTimestamp = item.updated_at || item.updatedAt || item.fecha_actualizacion || null;
+
     // Resolver URL oficial de imagen
-    const imageUrl = resolveProductImageUrl(item.imagen, rawId, item.updated_at);
+    const imageUrl = resolveProductImageUrl(item.imagen, rawId, updatedTimestamp);
 
     // Extraer unidad y valor de la base de datos o usando RegEx desde el nombre
     let unitValue: number | null = null;

@@ -68,26 +68,22 @@ export function ProductBottomSheet({
     useEffect(() => {
         if (product) {
             // Prevent duplicate initialization on same product re-renders
-            if (lastProductIdRef.current === product.id) {
-                return;
+            if (lastProductIdRef.current !== product.id) {
+                lastProductIdRef.current = product.id;
+                setQty(1); // Reset quantity upon opening
+                setRecommendedQty({}); // Reset recommended quantities upon opening
+                if (scrollRef.current) {
+                    scrollRef.current.scrollTop = 0; // Scroll back to top
+                }
             }
-            lastProductIdRef.current = product.id;
 
-            setQty(1); // Reset quantity upon opening
-            setRecommendedQty({}); // Reset recommended quantities upon opening
-            if (scrollRef.current) {
-                scrollRef.current.scrollTop = 0; // Scroll back to top
-            }
-            setTimeout(() => setIsVisible(true), 10);
+            setIsVisible(true);
             
-            // Push history state to intercept Android Back button
+            // Push history state to intercept Android Back button and Escape
             window.history.pushState({ productSheetOpen: true }, "");
             
             const handlePopState = () => {
-                setIsVisible(false);
-                setTimeout(() => {
-                    onCloseRef.current();
-                }, 300);
+                onCloseRef.current();
             };
             
             const handleKeyDown = (e: KeyboardEvent) => {
@@ -102,7 +98,7 @@ export function ProductBottomSheet({
             return () => {
                 window.removeEventListener("popstate", handlePopState);
                 window.removeEventListener("keydown", handleKeyDown);
-            }
+            };
         } else {
             setIsVisible(false);
             lastProductIdRef.current = null;

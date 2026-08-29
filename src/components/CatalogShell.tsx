@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigation } from "@/hooks/useNavigation";
 import { useScrollSpy } from "@/hooks/useScrollSpy";
+import { useCatalogSync } from "@/hooks/useCatalogSync";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { CategorySidebar, MasterGrid, ProductBottomSheet, HomeHero, BottomNav, SubcategoryCarousel } from "@/components/organisms";
@@ -14,6 +15,7 @@ import { useCartStore } from "@/store/cartStore";
 export function CatalogShell({ categories, products }: { categories: Category[], products: Product[] }) {
     const router = useRouter();
     const nav = useNavigation();
+    useCatalogSync();
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [isSearchActive, setIsSearchActive] = useState(false);
     const [deepViewSubId, setDeepViewSubId] = useState<string | null>(null);
