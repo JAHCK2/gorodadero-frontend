@@ -8,7 +8,9 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
+import { ZoomIn } from "lucide-react";
 import { ProductBadge, ProductPrice, GoLogo } from "@/components/atoms";
+import { ProductImageZoomModal } from "@/components/molecules";
 import { formatCOP } from "@/lib/money";
 import { Product } from "@/types/product";
 import { useCartStore } from "@/store/cartStore";
@@ -54,6 +56,7 @@ export function ProductBottomSheet({
 }: ProductBottomSheetProps) {
     const [qty, setQty] = useState(1);
     const [isVisible, setIsVisible] = useState(false);
+    const [isZoomOpen, setIsZoomOpen] = useState(false);
     const [recommendedQty, setRecommendedQty] = useState<Record<string, number>>({});
     const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -203,15 +206,24 @@ export function ProductBottomSheet({
                 >
                     {/* ── Hero image (Transparent Media V2 Glassmorphism) ── */}
                     <div className="flex items-center justify-center px-6 py-2">
-                        <div className="product-image-stage relative w-[260px] h-[260px]">
+                        <div 
+                            onClick={() => product.imageUrl && setIsZoomOpen(true)}
+                            className={`product-image-stage relative w-[260px] h-[260px] ${product.imageUrl ? 'cursor-zoom-in active:scale-[0.98] transition-transform' : ''}`}
+                        >
                             {product.imageUrl ? (
-                                <img
-                                    src={product.imageUrl}
-                                    alt={product.name}
-                                    loading="lazy"
-                                    decoding="async"
-                                    className="w-full h-full object-contain"
-                                />
+                                <>
+                                    <img
+                                        src={product.imageUrl}
+                                        alt={product.name}
+                                        loading="lazy"
+                                        decoding="async"
+                                        className="w-full h-full object-contain"
+                                    />
+                                    <div className="absolute bottom-2 right-2 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white text-[10px] font-bold flex items-center gap-1.5 shadow-md">
+                                        <ZoomIn className="w-3 h-3 text-[#5eead4]" />
+                                        <span>Ampliar</span>
+                                    </div>
+                                </>
                             ) : (
                                 <div className="absolute inset-0 flex items-center justify-center opacity-15">
                                     <GoLogo className="w-24 h-auto grayscale" />
@@ -525,6 +537,15 @@ export function ProductBottomSheet({
                     </div>
                 </div>
             </div>
+
+            {/* Lightbox / Pinch-to-zoom Modal */}
+            {isZoomOpen && product.imageUrl && (
+                <ProductImageZoomModal 
+                    imageUrl={product.imageUrl}
+                    altText={product.name}
+                    onClose={() => setIsZoomOpen(false)}
+                />
+            )}
         </div>
     );
 }
