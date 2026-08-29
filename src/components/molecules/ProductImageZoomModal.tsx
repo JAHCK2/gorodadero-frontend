@@ -144,17 +144,25 @@ export function ProductImageZoomModal({ imageUrl, altText, onClose }: ProductIma
 
     return (
         <div 
-            className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-between p-4 select-none touch-none animate-in fade-in duration-200"
+            className="fixed inset-0 z-[9999] bg-[#0c1926]/75 backdrop-blur-3xl flex flex-col items-center justify-between p-4 select-none touch-none animate-in fade-in duration-300"
             onWheel={handleWheel}
         >
+            {/* Ambient Lighting / Showcase Radial Backlight */}
+            <div 
+                className="absolute inset-0 pointer-events-none z-0"
+                style={{
+                    background: "radial-gradient(circle at 50% 48%, rgba(255,255,255,0.14) 0%, rgba(94,234,212,0.06) 40%, transparent 70%)"
+                }}
+            />
+
             {/* Top Bar */}
             <div className="w-full flex items-center justify-between text-white z-50 pt-2 px-2">
-                <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-white/80 max-w-[200px] truncate">
+                <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/15 backdrop-blur-xl border border-white/20 shadow-lg">
+                    <span className="text-xs font-bold text-white max-w-[200px] truncate drop-shadow-sm">
                         {altText}
                     </span>
                     {scale > 1 && (
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#5eead4]/25 text-[#5eead4] border border-[#5eead4]/40">
                             {scale.toFixed(1)}x
                         </span>
                     )}
@@ -162,16 +170,16 @@ export function ProductImageZoomModal({ imageUrl, altText, onClose }: ProductIma
 
                 <button 
                     onClick={onClose}
-                    className="w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 flex items-center justify-center text-white backdrop-blur-md transition-all"
+                    className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 active:scale-95 flex items-center justify-center text-white backdrop-blur-xl border border-white/30 shadow-xl transition-all"
                     aria-label="Cerrar vista previa"
                 >
                     <X className="w-5 h-5" strokeWidth={2.5} />
                 </button>
             </div>
 
-            {/* Interactive Image Viewport */}
+            {/* Interactive Image Viewport with Vitrina Glow */}
             <div 
-                className="relative flex-1 w-full flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing"
+                className="relative flex-1 w-full flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing z-10"
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
@@ -190,7 +198,7 @@ export function ProductImageZoomModal({ imageUrl, altText, onClose }: ProductIma
                     <img 
                         src={imageUrl} 
                         alt={altText}
-                        className="max-w-[90vw] max-h-[70vh] object-contain drop-shadow-[0_10px_35px_rgba(0,0,0,0.5)] pointer-events-none"
+                        className="max-w-[88vw] max-h-[65vh] object-contain drop-shadow-[0_16px_40px_rgba(0,0,0,0.35)] pointer-events-none"
                         draggable={false}
                     />
                 </div>
@@ -198,11 +206,14 @@ export function ProductImageZoomModal({ imageUrl, altText, onClose }: ProductIma
 
             {/* Bottom Controls */}
             <div className="w-full flex flex-col items-center gap-2 pb-4 z-50">
-                <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-white/10 backdrop-blur-xl border border-white/15 shadow-2xl">
+                <div 
+                    className="flex items-center gap-3 px-5 py-2.5 rounded-full bg-white/20 backdrop-blur-2xl border border-white/30 shadow-[0_8px_32px_rgba(0,0,0,0.25)]"
+                >
                     <button 
                         onClick={zoomOut} 
                         disabled={scale <= 1}
-                        className="p-1.5 rounded-full text-white/80 hover:text-white disabled:opacity-30 active:scale-95 transition-all"
+                        className="p-1.5 rounded-full text-white hover:text-white/80 disabled:opacity-30 active:scale-90 transition-all"
+                        aria-label="Reducir zoom"
                     >
                         <ZoomOut className="w-5 h-5" />
                     </button>
@@ -210,21 +221,23 @@ export function ProductImageZoomModal({ imageUrl, altText, onClose }: ProductIma
                     <button 
                         onClick={resetZoom}
                         disabled={scale === 1}
-                        className="p-1.5 rounded-full text-white/80 hover:text-white disabled:opacity-30 active:scale-95 transition-all"
+                        className="px-3 py-1 rounded-full text-xs font-bold text-white/90 hover:text-white disabled:opacity-30 active:scale-90 transition-all flex items-center gap-1 bg-white/10"
                     >
-                        <RotateCcw className="w-4 h-4" />
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>1x</span>
                     </button>
 
                     <button 
                         onClick={zoomIn} 
                         disabled={scale >= 4}
-                        className="p-1.5 rounded-full text-white/80 hover:text-white disabled:opacity-30 active:scale-95 transition-all"
+                        className="p-1.5 rounded-full text-white hover:text-white/80 disabled:opacity-30 active:scale-90 transition-all"
+                        aria-label="Aumentar zoom"
                     >
                         <ZoomIn className="w-5 h-5" />
                     </button>
                 </div>
 
-                <p className="text-[11px] font-medium text-white/50 tracking-wide text-center">
+                <p className="text-[11px] font-semibold text-white/70 tracking-wide text-center drop-shadow-sm">
                     Pellizca con dos dedos o toca dos veces para ampliar
                 </p>
             </div>
