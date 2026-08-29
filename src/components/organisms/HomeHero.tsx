@@ -68,7 +68,7 @@ export function HomeHero({ onCategoriesClick, onPromoClick, products, isSearchAc
                                 <span className="text-[10px] font-black text-white tracking-wider uppercase">Instagram</span>
                             </a>
                             <span className="text-[9px] font-black tracking-widest text-[#5eead4] uppercase px-2 py-0.5 rounded-full bg-black/40 border border-[#5eead4]/40 shadow-sm">
-                                v2.4-live
+                                v2.5-live
                             </span>
                         </div>
                     </div>
