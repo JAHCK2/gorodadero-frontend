@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://eoqethwihsupbcivmgvw.supabase.co';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+export const dynamic = 'force-dynamic';
 
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://eoqethwihsupbcivmgvw.supabase.co';
 
 export async function POST(request: Request) {
     try {
@@ -12,13 +11,16 @@ export async function POST(request: Request) {
         const { clave, valor, pin } = body;
 
         // Basic security check
-        if (pin !== '2024') {
+        if (pin !== '0314' && pin !== '2024') {
             return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
         }
 
+        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
         if (!supabaseServiceKey) {
-             return NextResponse.json({ success: false, error: 'No Service Role Key configured' }, { status: 500 });
+             return NextResponse.json({ success: false, error: 'No Supabase Key configured' }, { status: 500 });
         }
+
+        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
         const { error } = await supabaseAdmin.from('configuracion').upsert({ clave, valor });
 
