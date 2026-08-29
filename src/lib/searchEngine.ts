@@ -1,8 +1,7 @@
 import { Product } from "@/types/product";
 
 export interface SearchProduct extends Product {
-    // Optionally extend Product if search specific fields are needed,
-    // but typically we can just use the base Product type.
+    // Extends base Product type
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -28,12 +27,18 @@ export const UNIT_SYNONYMS: Record<string, string> = {
 
 /* ─────────────────────────────────────────────────────────────
    SMART SEARCH ENGINE — Multi-índice con 3 niveles
-   Prioridad: Barcode > Unit-Type Match > Pure Fuzzy
+   Prioridad: Barcode > Brand/Category/Unit Match > Pure Fuzzy Multi-field
    ───────────────────────────────────────────────────────────── */
 
 /** Normaliza: lowercase + strip acentos */
-export function normalize(s: string): string {
+export function normalize(s: string | null | undefined): string {
+    if (!s) return "";
     return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+}
+
+/** Construye el texto completo indexable de un producto (nombre + marca + categorías + barcode) */
+function getProductSearchHaystack(p: SearchProduct): string {
+    return `${normalize(p.name)} ${normalize(p.brand)} ${normalize(p.categoryName)} ${normalize(p.subcategoryName)} ${p.barcode || ''}`;
 }
 
 export function fuzzyTokenSearch(products: SearchProduct[], raw: string): SearchProduct[] {
@@ -43,10 +48,25 @@ export function fuzzyTokenSearch(products: SearchProduct[], raw: string): Search
 
     return products
         .filter((p) => {
-            const haystack = normalize(p.name);
+            const haystack = getProductSearchHaystack(p);
             return tokens.every((token) => haystack.includes(token));
         })
-        .sort((a, b) => a.name.localeCompare(b.name, "es"))
+        .sort((a, b) => {
+            // Priorizar coincidencias exactas en marca o inicio de nombre
+            const normA = normalize(a.name);
+            const normB = normalize(b.name);
+            const aStartsWith = normA.startsWith(processed);
+            const bStartsWith = normB.startsWith(processed);
+            if (aStartsWith && !bStartsWith) return -1;
+            if (!aStartsWith && bStartsWith) return 1;
+
+            const aBrandMatch = a.brand && normalize(a.brand).includes(processed);
+            const bBrandMatch = b.brand && normalize(b.brand).includes(processed);
+            if (aBrandMatch && !bBrandMatch) return -1;
+            if (!aBrandMatch && bBrandMatch) return 1;
+
+            return a.name.localeCompare(b.name, "es");
+        })
         .slice(0, 50);
 }
 
@@ -56,9 +76,9 @@ export function smartSearch(products: SearchProduct[], query: string): SearchPro
 
     // ── 1) BARCODE EXACT MATCH (máxima prioridad) ──
     const barcodeMatch = products.find(
-        (p) => p.barcode && p.barcode === raw
+        (p) => p.barcode && (p.barcode === raw || p.barcode.includes(raw))
     );
-    if (barcodeMatch) {
+    if (barcodeMatch && raw.length >= 6) {
         const rest = fuzzyTokenSearch(products, raw).filter(p => p.id !== barcodeMatch.id);
         return [barcodeMatch, ...rest].slice(0, 50);
     }
@@ -67,7 +87,6 @@ export function smartSearch(products: SearchProduct[], query: string): SearchPro
     const normalizedQuery = normalize(raw);
     const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
 
-    // Check if any token is a unit synonym
     let detectedUnitType: string | null = null;
     const nameTokens: string[] = [];
 
@@ -80,30 +99,24 @@ export function smartSearch(products: SearchProduct[], query: string): SearchPro
     }
 
     if (detectedUnitType) {
-        // Filter by unit_type first, then fuzzy on remaining name tokens
-        const unitFiltered = products.filter(p => p.unitType === detectedUnitType);
+        // Filtrar por unit_type primero, luego fuzzy sobre el resto
+        const unitFiltered = products.filter(p => p.unitType && normalize(p.unitType) === normalize(detectedUnitType));
 
-        let results: SearchProduct[];
         if (nameTokens.length > 0) {
-            // Further filter by name tokens
-            results = unitFiltered
+            const results = unitFiltered
                 .filter(p => {
-                    const haystack = normalize(p.name);
+                    const haystack = getProductSearchHaystack(p);
                     return nameTokens.every(t => haystack.includes(t));
                 })
                 .sort((a, b) => a.name.localeCompare(b.name, "es"))
                 .slice(0, 50);
-        } else {
-            // Only unit filter, sort by name
-            results = unitFiltered
-                .sort((a, b) => a.name.localeCompare(b.name, "es"))
-                .slice(0, 50);
-        }
 
-        if (results.length > 0) return results;
-        // Fallthrough to pure fuzzy if unit-type match yields nothing
+            if (results.length > 0) return results;
+        } else if (unitFiltered.length > 0) {
+            return unitFiltered.sort((a, b) => a.name.localeCompare(b.name, "es")).slice(0, 50);
+        }
     }
 
-    // ── 3) PURE FUZZY TOKEN SEARCH (fallback) ──
+    // ── 3) PURE FUZZY TOKEN SEARCH (multi-campo: nombre, marca, categoría, barcode) ──
     return fuzzyTokenSearch(products, raw);
 }

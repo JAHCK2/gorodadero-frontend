@@ -1,20 +1,25 @@
 // ═══════════════════════════════════════════════════════════
 // Organism: ProductBottomSheet — Product detail panel
 // Hero image, badge, price-per-unit, quantity +/- and CTA
+// With suggested/related & complementary products carousel
+// Bundled checkout logic (sums up main and recommended items)
 // ═══════════════════════════════════════════════════════════
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import { ProductBadge, ProductPrice, GoLogo } from "@/components/atoms";
 import { formatCOP } from "@/lib/money";
 import { Product } from "@/types/product";
+import { useCartStore } from "@/store/cartStore";
 
 interface ProductBottomSheetProps {
     product: Product | null;
     onClose: () => void;
     /** Called when user taps "Agregar" CTA */
     onAdd?: (product: Product, quantity: number) => void;
+    allProducts?: Product[];
+    onSelectProduct?: (product: Product) => void;
 }
 
 /** Calculate price per unit (ml or g) if applicable */
@@ -44,13 +49,35 @@ export function ProductBottomSheet({
     product,
     onClose,
     onAdd,
+    allProducts = [],
+    onSelectProduct,
 }: ProductBottomSheetProps) {
     const [qty, setQty] = useState(1);
     const [isVisible, setIsVisible] = useState(false);
+    const [recommendedQty, setRecommendedQty] = useState<Record<string, number>>({});
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    // Keep onClose in a ref to prevent dependency loops when parent passes inline function
+    const onCloseRef = useRef(onClose);
+    useEffect(() => {
+        onCloseRef.current = onClose;
+    }, [onClose]);
+
+    const lastProductIdRef = useRef<string | null>(null);
 
     useEffect(() => {
         if (product) {
+            // Prevent duplicate initialization on same product re-renders
+            if (lastProductIdRef.current === product.id) {
+                return;
+            }
+            lastProductIdRef.current = product.id;
+
             setQty(1); // Reset quantity upon opening
+            setRecommendedQty({}); // Reset recommended quantities upon opening
+            if (scrollRef.current) {
+                scrollRef.current.scrollTop = 0; // Scroll back to top
+            }
             setTimeout(() => setIsVisible(true), 10);
             
             // Push history state to intercept Android Back button
@@ -58,7 +85,9 @@ export function ProductBottomSheet({
             
             const handlePopState = () => {
                 setIsVisible(false);
-                setTimeout(onClose, 300);
+                setTimeout(() => {
+                    onCloseRef.current();
+                }, 300);
             };
             
             const handleKeyDown = (e: KeyboardEvent) => {
@@ -76,16 +105,9 @@ export function ProductBottomSheet({
             }
         } else {
             setIsVisible(false);
+            lastProductIdRef.current = null;
         }
-    }, [product, onClose]);
-
-    const closeSheet = useCallback(() => {
-        // If we close manually, we should also pop the history state to keep it clean
-        setIsVisible(false);
-        setTimeout(() => {
-            window.history.back(); // This naturally triggers the popstate or at least clears the stack
-        }, 300);
-    }, []);
+    }, [product?.id]);
 
     const handleBackdrop = useCallback(
         (e: React.MouseEvent) => {
@@ -96,6 +118,59 @@ export function ProductBottomSheet({
         [],
     );
 
+    // ── Related Products Query ──
+    const relatedProducts = useMemo(() => {
+        if (!allProducts || !product) return [];
+        return allProducts
+            .filter(p => p.categoryId === product.categoryId && p.id !== product.id)
+            .slice(0, 6);
+    }, [allProducts, product?.id, product?.categoryId]);
+
+    // ── Complementary Products Query ──
+    const complementaryProducts = useMemo(() => {
+        if (!allProducts || !product) return [];
+        return allProducts
+            .filter(p => p.categoryId !== product.categoryId)
+            .sort(() => 0.5 - Math.random())
+            .slice(0, 5);
+    }, [allProducts, product?.id, product?.categoryId]);
+
+    // Helper functions for recommended items selectors
+    const increaseRecommended = useCallback((id: string) => {
+        setRecommendedQty(prev => ({
+            ...prev,
+            [id]: (prev[id] || 0) + 1
+        }));
+    }, []);
+
+    const decreaseRecommended = useCallback((id: string) => {
+        setRecommendedQty(prev => {
+            const current = prev[id] || 0;
+            if (current <= 1) {
+                const next = { ...prev };
+                delete next[id];
+                return next;
+            }
+            return {
+                ...prev,
+                [id]: current - 1
+            };
+        });
+    }, []);
+
+    const recommendedPriceSum = useMemo(() => {
+        let sum = 0;
+        relatedProducts.forEach(item => {
+            const q = recommendedQty[item.id] || 0;
+            sum += Number(item.sellPrice) * q;
+        });
+        complementaryProducts.forEach(item => {
+            const q = recommendedQty[item.id] || 0;
+            sum += Number(item.sellPrice) * q;
+        });
+        return sum;
+    }, [recommendedQty, relatedProducts, complementaryProducts]);
+
     if (!product) return null;
 
     const perUnit = pricePerUnit(
@@ -103,7 +178,10 @@ export function ProductBottomSheet({
         product.unitType,
         product.unitValue,
     );
-    const total = Number(product.sellPrice) * qty;
+
+    // Price Calculations
+    const mainProductPrice = Number(product.sellPrice) * qty;
+    const totalBundlePrice = mainProductPrice + recommendedPriceSum;
 
     return (
         <div
@@ -112,7 +190,7 @@ export function ProductBottomSheet({
         >
             {/* ── Panel ── */}
             <div
-                className={`relative w-full max-w-md bg-white/50 backdrop-blur-3xl saturate-150 rounded-t-3xl shadow-[0_-8px_40px_rgba(0,0,0,0.1)] flex flex-col transition-transform duration-300 transform ${isVisible ? 'translate-y-0' : 'translate-y-full'}`}
+                className={`relative w-full max-w-md bg-white/70 backdrop-blur-3xl saturate-150 rounded-t-3xl shadow-[0_-8px_40px_rgba(0,0,0,0.15)] flex flex-col transition-transform duration-300 transform ${isVisible ? 'translate-y-0' : 'translate-y-full'}`}
                 style={{
                     maxHeight: '90vh',
                     borderTop: "1px solid rgba(255,255,255,0.6)"
@@ -123,21 +201,23 @@ export function ProductBottomSheet({
                     <div className="w-10 h-1 rounded-full bg-gray-300 cursor-pointer hover:bg-gray-400" />
                 </div>
 
-                <div className="overflow-y-auto no-scrollbar flex-1 pb-4">
-                    {/* ── Hero image ── */}
-                    <div className="flex items-center justify-center px-6 py-4">
-                        <div className="relative w-[280px] h-[280px]">
+                <div 
+                    ref={scrollRef}
+                    className="overflow-y-auto no-scrollbar flex-1 pb-24"
+                >
+                    {/* ── Hero image (Transparent Media V2 Glassmorphism) ── */}
+                    <div className="flex items-center justify-center px-6 py-2">
+                        <div className="product-image-stage relative w-[260px] h-[260px]">
                             {product.imageUrl ? (
-                                <Image
+                                <img
                                     src={product.imageUrl}
                                     alt={product.name}
-                                    fill
-                                    unoptimized={product.imageUrl?.startsWith('http')}
-                                    sizes="(max-width: 768px) 100vw, 400px"
-                                    className="object-contain drop-shadow-[0_8px_24px_rgba(0,0,0,0.15)]"
+                                    loading="lazy"
+                                    decoding="async"
+                                    className="w-full h-full object-contain"
                                 />
                             ) : (
-                                <div className="absolute inset-0 flex items-center justify-center opacity-10">
+                                <div className="absolute inset-0 flex items-center justify-center opacity-15">
                                     <GoLogo className="w-24 h-auto grayscale" />
                                 </div>
                             )}
@@ -145,7 +225,23 @@ export function ProductBottomSheet({
                     </div>
 
                     {/* ── Product info ── */}
-                    <div className="px-5 pb-2">
+                    <div className="px-5 pb-5">
+                        {/* Marca + Barcode Badge Row */}
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                            {product.brand ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-black/10 text-gray-800 backdrop-blur-sm border border-black/5">
+                                    {product.brand}
+                                </span>
+                            ) : (
+                                <span />
+                            )}
+                            {product.barcode && (
+                                <span className="text-[10px] font-mono text-gray-500 tracking-tight">
+                                    EAN: {product.barcode}
+                                </span>
+                            )}
+                        </div>
+
                         {/* Badge + Price/unit row */}
                         <div className="flex items-center gap-2 mb-2">
                             <ProductBadge
@@ -154,7 +250,7 @@ export function ProductBottomSheet({
                                 size="md"
                             />
                             {perUnit && (
-                                <span className="text-[11px] text-gray-400 font-medium">
+                                <span className="text-[11px] text-gray-500 font-bold">
                                     {perUnit}
                                 </span>
                             )}
@@ -166,19 +262,196 @@ export function ProductBottomSheet({
                         </h2>
 
                         {/* Category hint */}
-                        <p className="text-[12px] text-gray-400 mt-0.5">
-                            Producto · Tienda
+                        <p className="text-[12px] text-gray-500 font-medium mt-0.5">
+                            {product.subcategoryName || product.categoryName || product.category?.name || "Supermercado"} · GoRodadero
                         </p>
 
                         {/* Price */}
                         <div className="mt-2">
                             <ProductPrice amount={Number(product.sellPrice)} size="lg" />
                         </div>
+
+                        {/* Description */}
+                        {product.description && (
+                            <p className="text-sm text-gray-600 mt-3 leading-relaxed">
+                                {product.description}
+                            </p>
+                        )}
                     </div>
+
+                    {/* Divider */}
+                    {(relatedProducts.length > 0 || complementaryProducts.length > 0) && (
+                        <div className="h-2 bg-gray-100/50 backdrop-blur-sm border-y border-gray-200/20" />
+                    )}
+
+                    {/* ── Related Products Carousel ── */}
+                    {relatedProducts.length > 0 && (
+                        <div className="pt-5 pb-4">
+                            <h3 className="px-5 text-sm font-extrabold text-gray-900 mb-3 tracking-tight">
+                                Productos relacionados
+                            </h3>
+                            <div
+                                className="flex overflow-x-auto gap-3 px-5 snap-x snap-mandatory no-scrollbar"
+                                style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                            >
+                                {relatedProducts.map((item) => {
+                                    const recQty = recommendedQty[item.id] || 0;
+                                    
+                                    return (
+                                        <div 
+                                            key={item.id} 
+                                            className="flex-none w-[125px] snap-start cursor-pointer active:scale-95 transition-transform"
+                                            onClick={() => onSelectProduct?.(item)}
+                                        >
+                                            <div className="product-image-stage rounded-2xl relative aspect-square mb-2 overflow-hidden border border-white/30 bg-white/20 backdrop-blur-md">
+                                                {item.imageUrl ? (
+                                                    <img
+                                                        src={item.imageUrl}
+                                                        alt={item.name}
+                                                        loading="lazy"
+                                                        decoding="async"
+                                                        className="w-full h-full object-contain p-2"
+                                                    />
+                                                ) : (
+                                                    <div className="absolute inset-0 flex items-center justify-center opacity-15">
+                                                        <GoLogo className="w-12 h-auto grayscale" />
+                                                    </div>
+                                                )}
+                                                
+                                                {/* Mini selector for recommended card */}
+                                                {recQty > 0 ? (
+                                                    <div 
+                                                        className="absolute bottom-2 right-2 bg-emerald-500 border border-emerald-600 text-white rounded-lg flex items-center h-7 px-1.5 gap-2 shadow-sm select-none z-10"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <button 
+                                                            onClick={() => decreaseRecommended(item.id)} 
+                                                            className="w-4 h-full flex items-center justify-center font-black text-[13px] active:scale-75 transition-transform"
+                                                        >
+                                                            −
+                                                        </button>
+                                                        <span className="text-[11px] font-black">{recQty}</span>
+                                                        <button 
+                                                            onClick={() => increaseRecommended(item.id)} 
+                                                            className="w-4 h-full flex items-center justify-center font-black text-[13px] active:scale-75 transition-transform"
+                                                        >
+                                                            +
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        onClick={(e) => {
+                                                             e.stopPropagation();
+                                                             increaseRecommended(item.id);
+                                                        }}
+                                                        className="absolute bottom-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center shadow-sm border bg-white/80 backdrop-blur-sm border-gray-200/60 text-gray-800 hover:bg-white active:scale-90 transition-transform z-10"
+                                                    >
+                                                        <svg className="w-4 h-4 stroke-current" fill="none" viewBox="0 0 24 24" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                            <line x1="12" y1="5" x2="12" y2="19" />
+                                                            <line x1="5" y1="12" x2="19" y2="12" />
+                                                        </svg>
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <p className="text-xs font-black text-[#F97316] leading-tight">
+                                                {formatCOP(Number(item.sellPrice))}
+                                            </p>
+                                            <p className="text-[10px] font-bold text-gray-700 leading-snug line-clamp-2 mt-0.5">
+                                                {item.name}
+                                            </p>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── Complementary Products Carousel ── */}
+                    {complementaryProducts.length > 0 && (
+                        <div className="pt-3 pb-6">
+                            <h3 className="px-5 text-sm font-extrabold text-gray-900 mb-3 tracking-tight">
+                                Completa tu pedido 🛒
+                            </h3>
+                            <div
+                                className="flex overflow-x-auto gap-3 px-5 snap-x snap-mandatory no-scrollbar"
+                                style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                            >
+                                {complementaryProducts.map((item) => {
+                                    const recQty = recommendedQty[item.id] || 0;
+                                    
+                                    return (
+                                        <div 
+                                            key={item.id} 
+                                            className="flex-none w-[125px] snap-start cursor-pointer active:scale-95 transition-transform"
+                                            onClick={() => onSelectProduct?.(item)}
+                                        >
+                                            <div className="product-image-stage rounded-2xl relative aspect-square mb-2 overflow-hidden border border-white/30 bg-white/20 backdrop-blur-md">
+                                                {item.imageUrl ? (
+                                                    <img
+                                                        src={item.imageUrl}
+                                                        alt={item.name}
+                                                        loading="lazy"
+                                                        decoding="async"
+                                                        className="w-full h-full object-contain p-2"
+                                                    />
+                                                ) : (
+                                                    <div className="absolute inset-0 flex items-center justify-center opacity-15">
+                                                        <GoLogo className="w-12 h-auto grayscale" />
+                                                    </div>
+                                                )}
+                                                
+                                                {/* Mini selector for recommended card */}
+                                                {recQty > 0 ? (
+                                                    <div 
+                                                        className="absolute bottom-2 right-2 bg-emerald-500 border border-emerald-600 text-white rounded-lg flex items-center h-7 px-1.5 gap-2 shadow-sm select-none z-10"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <button 
+                                                            onClick={() => decreaseRecommended(item.id)} 
+                                                            className="w-4 h-full flex items-center justify-center font-black text-[13px] active:scale-75 transition-transform"
+                                                        >
+                                                            −
+                                                        </button>
+                                                        <span className="text-[11px] font-black">{recQty}</span>
+                                                        <button 
+                                                            onClick={() => increaseRecommended(item.id)} 
+                                                            className="w-4 h-full flex items-center justify-center font-black text-[13px] active:scale-75 transition-transform"
+                                                        >
+                                                            +
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            increaseRecommended(item.id);
+                                                        }}
+                                                        className="absolute bottom-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center shadow-sm border bg-white/80 backdrop-blur-sm border-gray-200/60 text-gray-800 hover:bg-white active:scale-90 transition-transform z-10"
+                                                    >
+                                                        <svg className="w-4 h-4 stroke-current" fill="none" viewBox="0 0 24 24" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                            <line x1="12" y1="5" x2="12" y2="19" />
+                                                            <line x1="5" y1="12" x2="19" y2="12" />
+                                                        </svg>
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <p className="text-xs font-black text-[#F97316] leading-tight">
+                                                {formatCOP(Number(item.sellPrice))}
+                                            </p>
+                                            <p className="text-[10px] font-bold text-gray-700 leading-snug line-clamp-2 mt-0.5">
+                                                {item.name}
+                                            </p>
+                                        </div>
+
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* ── Purchase zone ── */}
-                <div className="px-5 py-4 border-t border-white/50 mt-auto bg-white/40 backdrop-blur-md rounded-t-3xl">
+                <div className="px-5 py-4 border-t border-white/50 mt-auto bg-white/40 backdrop-blur-md rounded-t-3xl z-10">
                     <div className="flex items-center gap-4">
                         {/* Quantity selector */}
                         <div className="flex items-center gap-3 bg-gray-100 rounded-full px-1 py-1">
@@ -201,10 +474,39 @@ export function ProductBottomSheet({
                             </button>
                         </div>
 
-                        {/* CTA button */}
+                        {/* CTA button (Bundled checkout sum) */}
                         <button
                             onClick={() => {
-                                onAdd?.(product, qty);
+                                // Add main product to store
+                                const store = useCartStore.getState();
+                                const mainExisting = store.getItemQuantity(product.id);
+                                if (mainExisting > 0) {
+                                    store.updateQuantity(product.id, mainExisting + qty);
+                                } else {
+                                    store.addItem(product);
+                                    if (qty > 1) {
+                                        store.updateQuantity(product.id, qty);
+                                    }
+                                }
+
+                                // Add recommended items to store
+                                Object.entries(recommendedQty).forEach(([itemId, itemQty]) => {
+                                    if (itemQty > 0) {
+                                        const recommendedItem = allProducts.find(p => p.id === itemId);
+                                        if (recommendedItem) {
+                                            const recExisting = store.getItemQuantity(itemId);
+                                            if (recExisting > 0) {
+                                                store.updateQuantity(itemId, recExisting + itemQty);
+                                            } else {
+                                                store.addItem(recommendedItem);
+                                                if (itemQty > 1) {
+                                                    store.updateQuantity(itemId, itemQty);
+                                                }
+                                            }
+                                        }
+                                    }
+                                });
+
                                 window.history.back();
                             }}
                             className="flex-1 h-12 rounded-2xl bg-[#F97316] hover:bg-orange-600 text-white font-bold text-[15px] flex items-center justify-center gap-2 shadow-lg shadow-orange-500/25 active:scale-[0.97] transition-all"
@@ -222,7 +524,7 @@ export function ProductBottomSheet({
                                 <circle cx="19" cy="21" r="1" />
                                 <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
                             </svg>
-                            Agregar {formatCOP(total)}
+                            Agregar {formatCOP(totalBundlePrice)}
                         </button>
                     </div>
                 </div>

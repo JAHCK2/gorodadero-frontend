@@ -26,15 +26,14 @@ export function CartItemCard({ item, onIncrease, onDecrease, onRemove }: CartIte
     return (
         <div className="flex gap-3 py-4 border-b border-gray-100 last:border-b-0">
             {/* Imagen del producto */}
-            <div className="relative w-20 h-20 flex-shrink-0 rounded-xl bg-gray-50 overflow-hidden flex items-center justify-center">
+            <div className="product-image-stage relative w-20 h-20 flex-shrink-0 rounded-xl bg-gray-50/50 overflow-hidden flex items-center justify-center">
                 {product.imageUrl && product.imageUrl !== "" ? (
-                    <Image
+                    <img
                         src={product.imageUrl}
                         alt={product.name}
-                        fill
-                        unoptimized={product.imageUrl.startsWith('http')}
-                        sizes="80px"
-                        className="object-contain p-1.5"
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-full object-contain p-1.5"
                     />
                 ) : (
                     <GoLogo className="w-10 opacity-20 grayscale" />

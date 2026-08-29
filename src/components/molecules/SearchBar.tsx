@@ -5,6 +5,9 @@ import { Search, Truck, X, ArrowLeft, Check, Clock } from "lucide-react";
 import Image from "next/image";
 import { createPortal } from "react-dom";
 import { useCartStore } from "@/store/cartStore";
+import { AddButton } from "@/components/atoms/AddButton";
+import { useRouter } from "next/navigation";
+import { CartSummaryBar } from "./CartSummaryBar";
 
 /* ════════════════════════════════════════════════════════════════════════════
    SearchBar — Full-Screen Glassmorphism Search Overlay
@@ -37,12 +40,14 @@ interface SearchBarProps {
    ═════════════════════════════════════════════════════════════ */
 
 export function SearchBar({ products = [], onActiveChange, compact = false, compactTheme = "light", onProductSelect }: SearchBarProps) {
+    const router = useRouter();
     const [query, setQuery] = useState("");
     const [isActive, setIsActive] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
     const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
     const inputRef = useRef<HTMLInputElement>(null);
     const addItem = useCartStore((s) => s.addItem);
+    const cartItems = useCartStore((s) => s.items);
     const { getRecentProducts } = usePurchaseHistory();
 
     const handleDirectAdd = useCallback((product: SearchProduct) => {
@@ -178,68 +183,65 @@ export function SearchBar({ products = [], onActiveChange, compact = false, comp
                         {query.trim().length > 0 ? (
                             results.length > 0 ? (
                                 <div className="rounded-2xl overflow-hidden bg-white/[0.07] border border-white/10 backdrop-blur-xl">
-                                    {results.map((product, i) => (
-                                        <div
-                                            key={product.id}
-                                            role="button"
-                                            tabIndex={0}
-                                            className="flex items-center gap-3 w-full px-4 py-3.5 text-left active:bg-white/10 transition-colors border-b border-white/5 last:border-b-0 cursor-pointer"
-                                            onClick={() => {
-                                                if (onProductSelect) {
-                                                    onProductSelect(product);
-                                                } else {
-                                                    addItem(product as any);
-                                                }
-                                                handleBackClick();
-                                            }}
-                                        >
-                                            {/* Product thumbnail */}
-                                            <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center overflow-hidden">
-                                                {product.imageUrl ? (
-                                                    <Image
-                                                        src={product.imageUrl}
-                                                        alt=""
-                                                        width={48}
-                                                        height={48}
-                                                        unoptimized={product.imageUrl?.startsWith('http')}
-                                                        className="w-full h-full object-contain"
-                                                    />
-                                                ) : (
-                                                    <Search className="w-4 h-4 text-white/30" />
-                                                )}
-                                            </div>
-
-                                            {/* Product info */}
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-semibold text-white truncate">
-                                                    {product.name}
-                                                </p>
-                                                <p className="text-xs text-white/50 mt-0.5">
-                                                    ${product.sellPrice.toLocaleString("es-CO")}
-                                                </p>
-                                            </div>
-
-                                            {/* Direct Add Button */}
-                                            <button 
-                                                className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
-                                                    addedIds.has(product.id) 
-                                                    ? "bg-emerald-500 scale-110" 
-                                                    : "bg-emerald-500/20 active:scale-95 hover:bg-emerald-500/30"
-                                                }`}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDirectAdd(product);
+                                    {results.map((product, i) => {
+                                        const quantityInCart = cartItems.find((item) => item.product.id === product.id)?.quantity || 0;
+                                        return (
+                                            <div
+                                                key={product.id}
+                                                role="button"
+                                                tabIndex={0}
+                                                className="flex items-center gap-3 w-full px-4 py-3.5 text-left active:bg-white/10 transition-colors border-b border-white/5 last:border-b-0 cursor-pointer"
+                                                onClick={() => {
+                                                    if (onProductSelect) {
+                                                        onProductSelect(product);
+                                                    } else {
+                                                        addItem(product as any);
+                                                    }
+                                                    handleBackClick();
                                                 }}
-                                                aria-label="Agregar directo"
                                             >
-                                                {addedIds.has(product.id) ? (
-                                                    <Check className="w-5 h-5 text-white" strokeWidth={3} />
-                                                ) : (
-                                                    <span className="text-emerald-400 text-lg font-bold leading-none mb-0.5">+</span>
-                                                )}
-                                            </button>
-                                        </div>
-                                    ))}
+                                                {/* Product thumbnail */}
+                                                <div className="product-image-stage flex-shrink-0 w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center overflow-hidden">
+                                                    {product.imageUrl ? (
+                                                        <img
+                                                            src={product.imageUrl}
+                                                            alt=""
+                                                            loading="lazy"
+                                                            decoding="async"
+                                                            className="w-full h-full object-contain p-1"
+                                                        />
+                                                    ) : (
+                                                        <Search className="w-4 h-4 text-white/30" />
+                                                    )}
+                                                </div>
+
+                                                {/* Product info */}
+                                                <div className="flex-1 min-w-0 pr-2">
+                                                    {product.brand && (
+                                                        <span className="text-[10px] font-black uppercase text-[#5eead4] tracking-wider truncate block leading-none mb-0.5">
+                                                            {product.brand}
+                                                        </span>
+                                                    )}
+                                                    <p className="text-sm font-semibold text-white truncate">
+                                                        {product.name}
+                                                    </p>
+                                                    <p className="text-xs text-white/70 mt-0.5 font-bold">
+                                                        ${product.sellPrice.toLocaleString("es-CO")}
+                                                    </p>
+                                                </div>
+
+                                                {/* Direct Add Button */}
+                                                <div className="flex-shrink-0 mr-1" onClick={(e) => e.stopPropagation()}>
+                                                    <AddButton 
+                                                        quantityInCart={quantityInCart}
+                                                        onClick={() => {
+                                                            addItem(product as any);
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center justify-center pt-20">
@@ -294,6 +296,9 @@ export function SearchBar({ products = [], onActiveChange, compact = false, comp
                             </div>
                         )}
                     </div>
+
+                    {/* Option B: Render CartSummaryBar at the bottom of the search overlay */}
+                    <CartSummaryBar onCheckout={() => { closeSearch(); router.push("/carrito"); }} />
                 </div>,
                 document.body
             )}
@@ -320,12 +325,9 @@ export function SearchBar({ products = [], onActiveChange, compact = false, comp
                 </button>
             ) : (
                 /* Full inline glassmorphism bar */
-                <div
-                    className="sticky top-0 z-[60] px-4"
-                    style={{ paddingTop: "max(8px, env(safe-area-inset-top))" }}
-                >
+                <div className="w-full">
                     <div
-                        className="relative flex items-center h-[50px] rounded-2xl bg-white/15 backdrop-blur-xl border border-white/25 cursor-text transition-all duration-300 hover:bg-white/20 hover:border-white/35"
+                        className="relative flex items-center h-[42px] rounded-xl bg-white/15 backdrop-blur-xl border border-white/25 cursor-text transition-all duration-300 hover:bg-white/20 hover:border-white/35"
                         style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.2)" }}
                         onClick={() => {
                             setIsActive(true);
@@ -333,10 +335,10 @@ export function SearchBar({ products = [], onActiveChange, compact = false, comp
                             setTimeout(() => inputRef.current?.focus(), 100);
                         }}
                     >
-                        <div className="absolute left-3.5 flex items-center justify-center w-8 h-8 rounded-xl bg-white/15 backdrop-blur-sm">
-                            <Search className="w-4 h-4 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
+                        <div className="absolute left-2.5 flex items-center justify-center w-7 h-7 rounded-lg bg-white/15 backdrop-blur-sm">
+                            <Search className="w-3.5 h-3.5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" />
                         </div>
-                        <span className="pl-14 text-sm font-bold text-white/70 drop-shadow-[0_1px_2px_rgba(0,0,0,0.15)]">
+                        <span className="pl-11 text-xs font-bold text-white/70 drop-shadow-[0_1px_2px_rgba(0,0,0,0.15)]">
                             ¿Qué necesitas hoy?
                         </span>
                     </div>

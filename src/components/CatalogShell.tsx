@@ -170,6 +170,7 @@ export function CatalogShell({ categories, products }: { categories: Category[],
                                 onCategoriesClick={nav.goToMaster} 
                                 onPromoClick={handleQuickLink}
                                 onProductSelect={setSelectedProduct}
+                                categoriesCount={macros.length}
                             />
                         ) : (
                             <div className="relative w-full flex flex-col items-center">
@@ -304,6 +305,8 @@ export function CatalogShell({ categories, products }: { categories: Category[],
             <ProductBottomSheet 
                 product={selectedProduct} 
                 onClose={() => setSelectedProduct(null)} 
+                allProducts={products}
+                onSelectProduct={setSelectedProduct}
                 onAdd={(p, qty) => {
                     const store = useCartStore.getState();
                     const existingQty = store.getItemQuantity(p.id);
@@ -317,7 +320,7 @@ export function CatalogShell({ categories, products }: { categories: Category[],
                     }
                 }}
             />
-            {nav.navState === "deepView" && <CartSummaryBar hidden={selectedProduct !== null} onCheckout={() => router.push("/carrito")} />}
+            {nav.navState === "deepView" && <CartSummaryBar hidden={selectedProduct !== null || isSearchActive} onCheckout={() => router.push("/carrito")} />}
             {(!isSearchActive && (nav.navState === "home" || nav.navState === "masterView")) && <BottomNav />}
         </div>
     );

@@ -28,6 +28,10 @@ export interface Product {
     stock: number;
     isActive: boolean;
     categoryId: string;
+    categoryName?: string;
+    subcategoryId?: string;
+    subcategoryName?: string;
+    brand?: string | null;       // Marca del producto (maestro Chucho V2)
     barcode: string | null;
     unitValue: number | null;
     unitType: string | null;
