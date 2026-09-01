@@ -188,6 +188,9 @@ export function SearchBar({ products = [], onActiveChange, compact = false, comp
                                         return (
                                             <div
                                                 key={product.id}
+                                                data-search-result="true"
+                                                data-product-id={product.id}
+                                                data-barcode={product.barcode || ""}
                                                 className="flex items-center gap-3 w-full px-4 py-3.5 border-b border-white/5 last:border-b-0 hover:bg-white/[0.04] transition-colors"
                                             >
                                                 {/* Botón principal de selección del producto para abrir la ficha */}
@@ -214,6 +217,7 @@ export function SearchBar({ products = [], onActiveChange, compact = false, comp
                                                                 alt=""
                                                                 loading="lazy"
                                                                 decoding="async"
+                                                                data-result-product-image="true"
                                                                 className="w-full h-full object-contain p-1"
                                                             />
                                                         ) : (

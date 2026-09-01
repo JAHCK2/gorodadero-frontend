@@ -1,4 +1,4 @@
-import { Product } from "@/types/product";
+import type { Product } from "../types/product";
 
 export interface SearchProduct extends Product {
     // Extends base Product type
@@ -34,6 +34,12 @@ export const UNIT_SYNONYMS: Record<string, string> = {
 export function normalize(s: string | null | undefined): string {
     if (!s) return "";
     return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+}
+
+/** Normaliza código de barras eliminando espacios en blanco */
+export function normalizeBarcode(b: string | null | undefined): string {
+    if (!b) return "";
+    return b.replace(/\s+/g, "").trim();
 }
 
 /** Construye el texto completo indexable de un producto (nombre + marca + categorías + barcode) */
@@ -74,9 +80,21 @@ export function smartSearch(products: SearchProduct[], query: string): SearchPro
     const raw = query.trim();
     if (!raw) return [];
 
-    // ── 1) BARCODE EXACT MATCH (máxima prioridad) ──
+    // ── 1) BARCODE EXACT MATCH DETERMINISTA (máxima prioridad) ──
+    const rawBarcode = normalizeBarcode(raw);
+    const isNumericBarcode = /^\d{8,14}$/.test(rawBarcode);
+    if (isNumericBarcode) {
+        const exactBarcodeMatch = products.find(
+            (p) => normalizeBarcode(p.barcode) === rawBarcode
+        );
+        if (exactBarcodeMatch) {
+            return [exactBarcodeMatch];
+        }
+    }
+
+    // ── 1.1) BARCODE PARTIAL MATCH ──
     const barcodeMatch = products.find(
-        (p) => p.barcode && (p.barcode === raw || p.barcode.includes(raw))
+        (p) => p.barcode && normalizeBarcode(p.barcode).includes(rawBarcode)
     );
     if (barcodeMatch && raw.length >= 6) {
         const rest = fuzzyTokenSearch(products, raw).filter(p => p.id !== barcodeMatch.id);
