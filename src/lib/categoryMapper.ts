@@ -147,10 +147,33 @@ export function resolveMacroMeta(rawCategory: string | null | undefined): {
     const textWithoutEmoji = clean.replace(/^(\p{Extended_Pictographic}|\p{Emoji_Presentation})\s*/u, '').trim();
     const norm = generateSlug(textWithoutEmoji || clean);
 
-    // Buscar coincidencia con la configuración conocida
+    // 1. Coincidencia EXACTA por nombre canónico (Prioridad absoluta para evitar falsos positivos)
     for (const [key, conf] of Object.entries(KNOWN_MACRO_CONFIG)) {
         const normKey = generateSlug(key);
-        if (norm === normKey || conf.keywords.some(k => norm.includes(generateSlug(k)) || generateSlug(k).includes(norm))) {
+        if (norm === normKey || norm === generateSlug(conf.canonicalName)) {
+            return {
+                displayName: conf.canonicalName,
+                icon: conf.icon,
+                priority: conf.priority,
+                slug: normKey
+            };
+        }
+    }
+
+    // 2. Coincidencia por palabras completas (tokens) para evitar que "res" capture "licores"
+    const normTokens = norm.split('-');
+    for (const [key, conf] of Object.entries(KNOWN_MACRO_CONFIG)) {
+        const normKey = generateSlug(key);
+        const matchesKeyword = conf.keywords.some(k => {
+            const kSlug = generateSlug(k);
+            const kTokens = kSlug.split('-');
+            if (kTokens.length === 1) {
+                return normTokens.includes(kSlug);
+            }
+            return norm.includes(kSlug);
+        });
+
+        if (matchesKeyword) {
             return {
                 displayName: conf.canonicalName,
                 icon: conf.icon,
